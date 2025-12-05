@@ -2,9 +2,10 @@
     "buildCommand": "npm run build",
     "devCommand": "npm run dev",
     "installCommand": "npm install",
+    "outputDirectory": "dist",
     "rewrites": [
         {
-            "source": "/(.*)",
+            "source": "/api/:path*",
             "destination": "/api/index"
         }
     ]
