@@ -13,6 +13,8 @@ export interface Streamer {
   description: string
   tags: string[]
   follower_count: number
+  channel_url?: string
+  video_id?: string
   created_at: Date
 }
 
@@ -35,12 +37,58 @@ export interface Preference {
 
 /**
  * ランダムに配信者を1人取得
+ * @param excludeIds 除外する配信者IDのリスト
  */
-export async function getRandomStreamer(): Promise<Streamer | null> {
+export async function getRandomStreamer(excludeIds: number[] = []): Promise<Streamer | null> {
+  if (excludeIds.length > 0) {
+    const result = await sql<Streamer>`
+      SELECT * FROM streamers
+      WHERE NOT (id = ANY(${excludeIds}))
+      ORDER BY RANDOM()
+      LIMIT 1
+    `
+    return result.rows[0] || null
+  }
+
   const result = await sql<Streamer>`
     SELECT * FROM streamers
     ORDER BY RANDOM()
     LIMIT 1
+  `
+  return result.rows[0] || null
+}
+
+/**
+ * ランダムに複数の配信者を取得（重複なし）
+ * @param count 取得する配信者の数
+ * @param excludeIds 除外する配信者IDのリスト
+ */
+export async function getRandomStreamers(count: number, excludeIds: number[] = []): Promise<Streamer[]> {
+  if (excludeIds.length > 0) {
+    const result = await sql<Streamer>`
+      SELECT * FROM streamers
+      WHERE NOT (id = ANY(${excludeIds}))
+      ORDER BY RANDOM()
+      LIMIT ${count}
+    `
+    return result.rows
+  }
+
+  const result = await sql<Streamer>`
+    SELECT * FROM streamers
+    ORDER BY RANDOM()
+    LIMIT ${count}
+  `
+  return result.rows
+}
+
+/**
+ * IDで配信者を取得
+ */
+export async function getStreamerById(id: number): Promise<Streamer | null> {
+  const result = await sql<Streamer>`
+    SELECT * FROM streamers
+    WHERE id = ${id}
   `
   return result.rows[0] || null
 }
@@ -96,4 +144,48 @@ export async function recordPreference(
     RETURNING *
   `
   return result.rows[0]
+}
+
+/**
+ * ユーザーがアクション済みの配信者IDリストを取得
+ */
+export async function getActionedStreamerIds(anonymousUserId: number): Promise<number[]> {
+  const result = await sql<{ streamer_id: number }>`
+    SELECT DISTINCT streamer_id
+    FROM preferences
+    WHERE anonymous_user_id = ${anonymousUserId}
+  `
+  return result.rows.map(row => row.streamer_id)
+}
+
+/**
+ * アクション別に配信者リストを取得
+ */
+export async function getStreamersByAction(
+  anonymousUserId: number,
+  action?: PreferenceAction
+): Promise<Streamer[]> {
+  if (action) {
+    const result = await sql<Streamer>`
+      SELECT s.*, MAX(p.created_at) as last_action_at
+      FROM streamers s
+      INNER JOIN preferences p ON s.id = p.streamer_id
+      WHERE p.anonymous_user_id = ${anonymousUserId}
+        AND p.action = ${action}
+      GROUP BY s.id
+      ORDER BY last_action_at DESC
+    `
+    return result.rows
+  }
+
+  // アクション指定なしの場合は全てのアクション済み配信者を取得
+  const result = await sql<Streamer>`
+    SELECT s.*, MAX(p.created_at) as last_action_at
+    FROM streamers s
+    INNER JOIN preferences p ON s.id = p.streamer_id
+    WHERE p.anonymous_user_id = ${anonymousUserId}
+    GROUP BY s.id
+    ORDER BY last_action_at DESC
+  `
+  return result.rows
 }

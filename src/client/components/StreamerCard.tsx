@@ -8,21 +8,30 @@ interface Streamer {
   description: string
   tags: string[]
   follower_count: number
+  channel_url?: string
+  video_id?: string
 }
 
 interface StreamerCardProps {
   streamer: Streamer
+  onClick?: () => void
+  onAction?: (streamerId: number, action: 'LIKE' | 'SOSO' | 'DISLIKE') => void
 }
 
-function StreamerCard({ streamer }: StreamerCardProps) {
+function StreamerCard({ streamer, onClick, onAction }: StreamerCardProps) {
+  const handleAction = (e: React.MouseEvent, action: 'LIKE' | 'SOSO' | 'DISLIKE') => {
+    e.stopPropagation()
+    onAction?.(streamer.id, action)
+  }
+
   return (
     <div className="streamer-card">
-      <div className="card-image">
+      <div className="card-image" onClick={onClick}>
         <img src={streamer.avatar_url} alt={streamer.name} />
         <span className="platform-badge">{streamer.platform}</span>
       </div>
 
-      <div className="card-content">
+      <div className="card-content" onClick={onClick}>
         <h3 className="streamer-name">{streamer.name}</h3>
         <p className="streamer-description">{streamer.description}</p>
 
@@ -40,6 +49,21 @@ function StreamerCard({ streamer }: StreamerCardProps) {
           </svg>
           <span>{streamer.follower_count.toLocaleString()} フォロワー</span>
         </div>
+      </div>
+
+      <div className="card-actions">
+        <button
+          className="action-btn action-like"
+          onClick={(e) => handleAction(e, 'LIKE')}
+        >
+          好き
+        </button>
+        <button
+          className="action-btn action-soso"
+          onClick={(e) => handleAction(e, 'SOSO')}
+        >
+          普通
+        </button>
       </div>
     </div>
   )
