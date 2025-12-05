@@ -41,9 +41,11 @@ export interface Preference {
  */
 export async function getRandomStreamer(excludeIds: number[] = []): Promise<Streamer | null> {
   if (excludeIds.length > 0) {
+    // 配列をJSON配列に変換してPostgreSQLで扱う
+    const excludeIdsStr = JSON.stringify(excludeIds)
     const result = await sql<Streamer>`
       SELECT * FROM streamers
-      WHERE NOT (id = ANY(${excludeIds}))
+      WHERE id NOT IN (SELECT value::int FROM json_array_elements_text(${excludeIdsStr}::json))
       ORDER BY RANDOM()
       LIMIT 1
     `
@@ -65,9 +67,11 @@ export async function getRandomStreamer(excludeIds: number[] = []): Promise<Stre
  */
 export async function getRandomStreamers(count: number, excludeIds: number[] = []): Promise<Streamer[]> {
   if (excludeIds.length > 0) {
+    // 配列をJSON配列に変換してPostgreSQLで扱う
+    const excludeIdsStr = JSON.stringify(excludeIds)
     const result = await sql<Streamer>`
       SELECT * FROM streamers
-      WHERE NOT (id = ANY(${excludeIds}))
+      WHERE id NOT IN (SELECT value::int FROM json_array_elements_text(${excludeIdsStr}::json))
       ORDER BY RANDOM()
       LIMIT ${count}
     `
