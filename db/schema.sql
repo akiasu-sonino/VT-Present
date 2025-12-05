@@ -1,6 +1,12 @@
 -- VT-Present Database Schema
 -- このファイルはVercel Postgresで実行してテーブルを作成します
 
+-- 既存のテーブルと型を削除（再セットアップ用）
+DROP TABLE IF EXISTS preferences CASCADE;
+DROP TABLE IF EXISTS anonymous_users CASCADE;
+DROP TABLE IF EXISTS streamers CASCADE;
+DROP TYPE IF EXISTS preference_action CASCADE;
+
 -- アクションの種類を定義
 CREATE TYPE preference_action AS ENUM ('LIKE', 'SOSO', 'DISLIKE');
 
@@ -13,6 +19,8 @@ CREATE TABLE streamers (
   description TEXT,
   tags TEXT[],
   follower_count INTEGER DEFAULT 0,
+  channel_url TEXT,
+  video_id TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
