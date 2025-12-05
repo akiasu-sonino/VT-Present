@@ -4,10 +4,19 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup-db": "tsx scripts/setup-db.ts"
   },
   "dependencies": {
-    "hono": "^4.10.7"
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vercel/postgres": "^0.10.0",
+    "@vitejs/plugin-react": "^5.1.1",
+    "dotenv": "^17.2.3",
+    "hono": "^4.10.7",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@hono/vite-dev-server": "^0.23.0",
