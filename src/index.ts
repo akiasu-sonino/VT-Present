@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction } from './lib/db'
-import { getOrCreateCurrentUser } from './lib/auth'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction } from './lib/db.js'
+import { getOrCreateCurrentUser } from './lib/auth.js'
 
 const app = new Hono().basePath('/api')
 

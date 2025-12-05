@@ -5,7 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { Context } from 'hono'
-import { getOrCreateAnonymousUser, AnonymousUser } from './db'
+import { getOrCreateAnonymousUser, AnonymousUser } from './db.js'
 
 const COOKIE_NAME = 'vt_anonymous_id'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1年
