@@ -2,11 +2,19 @@
     "buildCommand": "npm run build",
     "devCommand": "npm run dev",
     "installCommand": "npm install",
+    "framework": null,
     "outputDirectory": "dist",
-    "rewrites": [
+    "routes": [
         {
-            "source": "/api/:path*",
-            "destination": "/api/index"
+            "src": "/api/(.*)",
+            "dest": "/api/index"
+        },
+        {
+            "handle": "filesystem"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/index.html"
         }
     ]
 }
