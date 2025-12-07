@@ -51,9 +51,10 @@ export async function getRandomStreamer(excludeIds: number[] = []): Promise<Stre
  * キャッシュされたデータから選択するため、DBアクセスなし
  * @param count 取得する配信者の数
  * @param excludeIds 除外する配信者IDのリスト
+ * @param tags フィルタリングするタグ
  */
-export async function getRandomStreamers(count: number, excludeIds: number[] = []): Promise<Streamer[]> {
-  return cache.getRandomStreamers(count, excludeIds)
+export async function getRandomStreamers(count: number, excludeIds: number[] = [], tags: string[] = []): Promise<Streamer[]> {
+  return cache.getRandomStreamers(count, excludeIds, tags)
 }
 
 /**
@@ -153,4 +154,12 @@ export async function getStreamersByAction(
   action?: PreferenceAction
 ): Promise<Streamer[]> {
   return cache.getStreamersByAction(anonymousUserId, action)
+}
+
+/**
+ * 全タグ一覧を取得
+ * キャッシュされたストリーマーデータから抽出するため、DBアクセスなし
+ */
+export async function getAllTags(): Promise<string[]> {
+  return cache.getAllTags()
 }

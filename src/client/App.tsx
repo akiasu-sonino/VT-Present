@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import StreamerCard from './components/StreamerCard'
 import PreferencesList from './components/PreferencesList'
+import TagFilter from './components/TagFilter'
 import './styles/App.css'
 
 interface Streamer {
@@ -23,16 +24,22 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedStreamer, setSelectedStreamer] = useState<Streamer | null>(null)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
 
   useEffect(() => {
     fetchStreamers()
-  }, [])
+  }, [selectedTags])
 
   const fetchStreamers = async () => {
     try {
       setLoading(true)
       // 複数の配信者を一度に取得（重複なし）
-      const response = await fetch('/api/streams/random-multiple?count=12')
+      const params = new URLSearchParams({ count: '12' })
+      if (selectedTags.length > 0) {
+        params.append('tags', selectedTags.join(','))
+      }
+
+      const response = await fetch(`/api/streams/random-multiple?${params.toString()}`)
       const data = await response.json()
 
       if (response.ok && data.streamers) {
@@ -113,6 +120,8 @@ function App() {
       <main className="main">
         {activeTab === 'discover' && (
           <>
+            <TagFilter selectedTags={selectedTags} onTagsChange={setSelectedTags} />
+
             {loading && (
               <div className="loading">
                 <p>配信者を読み込み中...</p>
@@ -126,7 +135,14 @@ function App() {
               </div>
             )}
 
-            {!loading && !error && (
+            {!loading && !error && streamers.length === 0 && (
+              <div className="empty-state">
+                <p>選択したタグの配信者が見つかりませんでした</p>
+                <button onClick={() => setSelectedTags([])}>フィルターをリセット</button>
+              </div>
+            )}
+
+            {!loading && !error && streamers.length > 0 && (
               <div className="streamers-grid">
                 {streamers.map((streamer, index) => (
                   <StreamerCard

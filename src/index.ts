@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags } from './lib/db.js'
 import { getOrCreateCurrentUser } from './lib/auth.js'
 import { cache } from './lib/cache.js'
 
@@ -35,6 +35,17 @@ app.get('/cache/stats', (c) => {
       ttl: 'Time to live in milliseconds'
     }
   })
+})
+
+// 全タグ一覧を取得
+app.get('/tags', async (c) => {
+  try {
+    const tags = await getAllTags()
+    return c.json({ tags })
+  } catch (error) {
+    console.error('Error fetching tags:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
 })
 
 // ランダムに配信者を取得
@@ -74,13 +85,17 @@ app.get('/streams/random-multiple', async (c) => {
       return c.json({ error: 'Count must be between 1 and 50' }, 400)
     }
 
+    // クエリパラメータからタグを取得（カンマ区切り）
+    const tagsParam = c.req.query('tags')
+    const tags = tagsParam ? tagsParam.split(',').map(t => t.trim()).filter(t => t.length > 0) : []
+
     // アクション済み配信者IDを取得
     const excludeIds = await getActionedStreamerIds(user.id)
 
-    // 除外IDを考慮してランダム配信者を複数取得
-    const streamers = await getRandomStreamers(count, excludeIds)
+    // 除外IDとタグを考慮してランダム配信者を複数取得
+    const streamers = await getRandomStreamers(count, excludeIds, tags)
 
-    return c.json({ streamers, count: streamers.length })
+    return c.json({ streamers, count: streamers.length, filters: { tags } })
   } catch (error) {
     console.error('Error fetching random streamers:', error)
     return c.json({ error: 'Internal server error' }, 500)

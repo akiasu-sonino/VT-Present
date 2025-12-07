@@ -72,10 +72,18 @@ class DataCache {
    * キャッシュされたデータからランダムに複数のストリーマーを取得
    * @param count 取得する配信者の数
    * @param excludeIds 除外する配信者IDのリスト
+   * @param tags フィルタリングするタグ（指定された場合、いずれかのタグを含むストリーマーのみ）
    */
-  async getRandomStreamers(count: number, excludeIds: number[] = []): Promise<Streamer[]> {
+  async getRandomStreamers(count: number, excludeIds: number[] = [], tags: string[] = []): Promise<Streamer[]> {
     const streamers = await this.getStreamers()
-    const available = streamers.filter(s => !excludeIds.includes(s.id))
+    let available = streamers.filter(s => !excludeIds.includes(s.id))
+
+    // タグでフィルタリング（指定されたタグのいずれかを含むストリーマーのみ）
+    if (tags.length > 0) {
+      available = available.filter(s =>
+        s.tags && s.tags.some(tag => tags.includes(tag))
+      )
+    }
 
     // Fisher-Yatesアルゴリズムでシャッフル
     const shuffled = [...available]
@@ -206,6 +214,23 @@ class DataCache {
       expiresAt: Date.now() + this.TTL
     })
     console.log(`[Cache] Cached user data for ${anonymousId}`)
+  }
+
+  /**
+   * 全ストリーマーから重複なしのタグ一覧を取得
+   * キャッシュされたストリーマーデータから抽出
+   */
+  async getAllTags(): Promise<string[]> {
+    const streamers = await this.getStreamers()
+    const tagsSet = new Set<string>()
+
+    streamers.forEach(streamer => {
+      if (streamer.tags) {
+        streamer.tags.forEach(tag => tagsSet.add(tag))
+      }
+    })
+
+    return Array.from(tagsSet).sort()
   }
 
   /**
