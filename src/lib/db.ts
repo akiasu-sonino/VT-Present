@@ -23,8 +23,19 @@ export interface Streamer {
 export interface AnonymousUser {
   id: number
   anonymous_id: string
+  user_id: number | null
   created_at: Date
   last_active_at: Date
+}
+
+export interface User {
+  id: number
+  google_id: string
+  email: string
+  name: string | null
+  avatar_url: string | null
+  created_at: Date
+  last_login_at: Date
 }
 
 export type PreferenceAction = 'LIKE' | 'SOSO' | 'DISLIKE'
@@ -34,6 +45,24 @@ export interface Preference {
   anonymous_user_id: number
   streamer_id: number
   action: PreferenceAction
+  created_at: Date
+}
+
+export interface Comment {
+  id: number
+  streamer_id: number
+  user_id: number
+  content: string
+  created_at: Date
+  user?: User
+}
+
+export interface ContactMessage {
+  id: number
+  user_id: number
+  subject: string | null
+  message: string
+  status: string
   created_at: Date
 }
 
@@ -162,4 +191,90 @@ export async function getStreamersByAction(
  */
 export async function getAllTags(): Promise<string[]> {
   return cache.getAllTags()
+}
+
+/**
+ * Google IDでユーザーを取得
+ */
+export async function getUserByGoogleId(googleId: string): Promise<User | null> {
+  const result = await sql<User>`
+    SELECT * FROM users
+    WHERE google_id = ${googleId}
+  `
+  return result.rows[0] || null
+}
+
+/**
+ * ユーザーIDでユーザーを取得
+ */
+export async function getUserById(userId: number): Promise<User | null> {
+  const result = await sql<User>`
+    SELECT * FROM users
+    WHERE id = ${userId}
+  `
+  return result.rows[0] || null
+}
+
+/**
+ * ユーザーを作成
+ */
+export async function createUser(
+  googleId: string,
+  email: string,
+  name: string | null,
+  avatarUrl: string | null
+): Promise<User> {
+  const result = await sql<User>`
+    INSERT INTO users (google_id, email, name, avatar_url)
+    VALUES (${googleId}, ${email}, ${name}, ${avatarUrl})
+    RETURNING *
+  `
+  return result.rows[0]
+}
+
+/**
+ * ユーザーのログイン日時を更新
+ */
+export async function updateUserLastLogin(userId: number): Promise<void> {
+  await sql`
+    UPDATE users
+    SET last_login_at = NOW()
+    WHERE id = ${userId}
+  `
+}
+
+/**
+ * 匿名ユーザーを認証済みユーザーに紐付け
+ */
+export async function linkAnonymousUserToUser(
+  anonymousId: string,
+  userId: number
+): Promise<void> {
+  await sql`
+    UPDATE anonymous_users
+    SET user_id = ${userId}
+    WHERE anonymous_id = ${anonymousId}
+  `
+}
+
+/**
+ * 配信者のコメント一覧を取得
+ * ユーザー情報とJOINして返す
+ */
+export async function getCommentsByStreamerId(streamerId: number): Promise<Comment[]> {
+  const result = await sql<Comment>`
+    SELECT
+      c.*,
+      json_build_object(
+        'id', u.id,
+        'name', u.name,
+        'email', u.email,
+        'avatar_url', u.avatar_url
+      ) as user
+    FROM comments c
+    INNER JOIN users u ON c.user_id = u.id
+    WHERE c.streamer_id = ${streamerId}
+    ORDER BY c.created_at DESC
+  `
+  return result.rows
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import StreamerCard from './components/StreamerCard'
 import PreferencesList from './components/PreferencesList'
 import TagFilter from './components/TagFilter'
+import UserMenu from './components/UserMenu'
 import './styles/App.css'
 
 interface Streamer {
@@ -16,6 +17,22 @@ interface Streamer {
   video_id?: string
 }
 
+interface User {
+  id: number
+  email: string
+  name: string | null
+  avatar_url: string | null
+}
+
+interface Comment {
+  id: number
+  streamer_id: number
+  user_id: number
+  content: string
+  created_at: string
+  user?: User
+}
+
 type TabType = 'discover' | 'preferences'
 
 function App() {
@@ -25,10 +42,94 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [selectedStreamer, setSelectedStreamer] = useState<Streamer | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [comments, setComments] = useState<Comment[]>([])
+  const [commentText, setCommentText] = useState('')
+  const [submittingComment, setSubmittingComment] = useState(false)
 
   useEffect(() => {
     fetchStreamers()
   }, [selectedTags])
+
+  useEffect(() => {
+    fetchCurrentUser()
+  }, [])
+
+  useEffect(() => {
+    if (selectedStreamer) {
+      fetchComments(selectedStreamer.id)
+    }
+  }, [selectedStreamer])
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me')
+      const data = await response.json()
+      if (data.authenticated && data.user) {
+        setCurrentUser(data.user)
+      }
+    } catch (err) {
+      console.error('Error fetching current user:', err)
+    }
+  }
+
+  const fetchComments = async (streamerId: number) => {
+    try {
+      const response = await fetch(`/api/comments/${streamerId}`)
+      const data = await response.json()
+      if (response.ok && data.comments) {
+        setComments(data.comments)
+      }
+    } catch (err) {
+      console.error('Error fetching comments:', err)
+    }
+  }
+
+  const handleSubmitComment = async () => {
+    if (!commentText.trim() || !selectedStreamer || !currentUser) return
+
+    const newComment: Comment = {
+      id: Date.now(), // 一時的なID
+      streamer_id: selectedStreamer.id,
+      user_id: currentUser.id,
+      content: commentText.trim(),
+      created_at: new Date().toISOString(),
+      user: currentUser
+    }
+
+    try {
+      setSubmittingComment(true)
+
+      // 楽観的UI更新: すぐにローカル状態に追加
+      setComments(prev => [newComment, ...prev])
+      setCommentText('')
+
+      const response = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          streamerId: selectedStreamer.id,
+          content: newComment.content
+        })
+      })
+
+      if (!response.ok) {
+        // エラーの場合は追加したコメントを削除
+        setComments(prev => prev.filter(c => c.id !== newComment.id))
+        const data = await response.json()
+        alert(data.error || 'コメント投稿に失敗しました')
+        setCommentText(newComment.content) // テキストを戻す
+      }
+    } catch (err) {
+      console.error('Error submitting comment:', err)
+      // エラーの場合は追加したコメントを削除
+      setComments(prev => prev.filter(c => c.id !== newComment.id))
+      alert('コメント投稿に失敗しました')
+      setCommentText(newComment.content) // テキストを戻す
+    } finally {
+      setSubmittingComment(false)
+    }
+  }
 
   const fetchStreamers = async () => {
     try {
@@ -98,8 +199,13 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1 className="title">OshiStream</h1>
-        <p className="subtitle">新たな推しと出会う</p>
+        <div className="header-top">
+          <div className="header-branding">
+            <h1 className="title">OshiStream</h1>
+            <p className="subtitle">新たな推しと出会うプラットフォーム</p>
+          </div>
+          <UserMenu onUserChange={setCurrentUser} />
+        </div>
 
         <nav className="tab-navigation">
           <button
@@ -193,6 +299,57 @@ function App() {
                 チャンネルを見る →
               </a>
             )}
+
+            <div className="comments-section">
+              <h3>コメント</h3>
+
+              {currentUser ? (
+                <div className="comment-form">
+                  <textarea
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="コメントを入力..."
+                    maxLength={1000}
+                    disabled={submittingComment}
+                  />
+                  <button
+                    onClick={handleSubmitComment}
+                    disabled={!commentText.trim() || submittingComment}
+                  >
+                    {submittingComment ? '送信中...' : '投稿'}
+                  </button>
+                </div>
+              ) : (
+                <p className="login-prompt">コメントするにはログインが必要です</p>
+              )}
+
+              <div className="comments-list">
+                {comments.length === 0 ? (
+                  <p className="no-comments">まだコメントがありません</p>
+                ) : (
+                  comments.map((comment) => (
+                    <div key={comment.id} className="comment">
+                      <div className="comment-header">
+                        {comment.user?.avatar_url && (
+                          <img
+                            src={comment.user.avatar_url}
+                            alt={comment.user.name || 'User'}
+                            className="comment-avatar"
+                          />
+                        )}
+                        <span className="comment-author">
+                          {comment.user?.name || comment.user?.email || 'Unknown'}
+                        </span>
+                        <span className="comment-date">
+                          {new Date(comment.created_at).toLocaleDateString('ja-JP')}
+                        </span>
+                      </div>
+                      <p className="comment-content">{comment.content}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

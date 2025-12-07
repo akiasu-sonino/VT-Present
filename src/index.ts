@@ -1,8 +1,11 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags } from './lib/db.js'
-import { getOrCreateCurrentUser } from './lib/auth.js'
+import { setCookie } from 'hono/cookie'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId } from './lib/db.js'
+import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { cache } from './lib/cache.js'
+import { writeCache } from './lib/write-cache.js'
+import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessionCookie, getSessionUserId, clearSession, isDevelopment, createMockUser } from './lib/oauth.js'
 
 const app = new Hono().basePath('/api')
 
@@ -26,13 +29,16 @@ app.get('/health', (c) => {
 // キャッシュ統計情報（デバッグ用）
 app.get('/cache/stats', (c) => {
   const stats = cache.getStats()
+  const writeStats = writeCache.getStats()
   return c.json({
     cache: stats,
+    writeCache: writeStats,
     description: {
       streamers: 'All streamer data cached for 1 hour',
       userActions: 'User action history cached per user',
       users: 'Anonymous user data cached',
-      ttl: 'Time to live in milliseconds'
+      ttl: 'Time to live in milliseconds',
+      writeCache: 'Pending writes buffered in memory'
     }
   })
 })
@@ -46,6 +52,174 @@ app.get('/tags', async (c) => {
     console.error('Error fetching tags:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
+})
+
+// ========================================
+// 認証関連エンドポイント
+// ========================================
+
+// 現在のユーザー情報を取得
+app.get('/auth/me', async (c) => {
+  try {
+    const userId = getSessionUserId(c)
+
+    if (!userId) {
+      return c.json({ authenticated: false, user: null })
+    }
+
+    const user = await getUserById(userId)
+
+    if (!user) {
+      return c.json({ authenticated: false, user: null })
+    }
+
+    return c.json({
+      authenticated: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatar_url: user.avatar_url
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching current user:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// Google OAuthログイン開始（本番環境用）
+app.get('/auth/google', async (c) => {
+  try {
+    if (isDevelopment()) {
+      return c.json({ error: 'Use /api/auth/mock for local development' }, 400)
+    }
+
+    const { url, state, codeVerifier } = createGoogleAuthorizationURL()
+
+    // state と codeVerifier をCookieに保存
+    setCookie(c, 'google_oauth_state', state, {
+      path: '/',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: 60 * 10 // 10分
+    })
+
+    setCookie(c, 'google_code_verifier', codeVerifier, {
+      path: '/',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+      maxAge: 60 * 10 // 10分
+    })
+
+    return c.redirect(url.toString())
+  } catch (error) {
+    console.error('Error starting Google OAuth:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// Google OAuthコールバック
+app.get('/auth/callback/google', async (c) => {
+  try {
+    const code = c.req.query('code')
+    const state = c.req.query('state')
+
+    if (!code || !state) {
+      return c.json({ error: 'Invalid callback' }, 400)
+    }
+
+    // stateとcodeVerifierを検証
+    const storedState = c.req.header('cookie')?.match(/google_oauth_state=([^;]+)/)?.[1]
+    const storedCodeVerifier = c.req.header('cookie')?.match(/google_code_verifier=([^;]+)/)?.[1]
+
+    if (!storedState || !storedCodeVerifier || storedState !== state) {
+      return c.json({ error: 'Invalid state' }, 400)
+    }
+
+    // Googleからユーザー情報を取得
+    const googleUser = await validateGoogleAuthorizationCode(code, storedCodeVerifier)
+
+    // ユーザーを取得または作成
+    let user = await getUserByGoogleId(googleUser.id)
+
+    if (!user) {
+      user = await createUser(
+        googleUser.id,
+        googleUser.email,
+        googleUser.name || null,
+        googleUser.picture || null
+      )
+    } else {
+      await updateUserLastLogin(user.id)
+    }
+
+    // 匿名ユーザーを紐付け
+    const anonymousId = getOrCreateAnonymousId(c)
+    await linkAnonymousUserToUser(anonymousId, user.id)
+
+    // セッションを作成
+    setSessionCookie(c, user.id)
+
+    // フロントエンドにリダイレクト
+    return c.redirect('/')
+  } catch (error) {
+    console.error('Error in Google OAuth callback:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// モックログイン（開発環境のみ）
+app.post('/auth/mock', async (c) => {
+  try {
+    if (!isDevelopment()) {
+      return c.json({ error: 'Mock login is only available in development' }, 403)
+    }
+
+    const mockUser = createMockUser()
+
+    // モックユーザーを取得または作成
+    let user = await getUserByGoogleId(mockUser.id)
+
+    if (!user) {
+      user = await createUser(
+        mockUser.id,
+        mockUser.email,
+        mockUser.name || null,
+        mockUser.picture || null
+      )
+    } else {
+      await updateUserLastLogin(user.id)
+    }
+
+    // 匿名ユーザーを紐付け
+    const anonymousId = getOrCreateAnonymousId(c)
+    await linkAnonymousUserToUser(anonymousId, user.id)
+
+    // セッションを作成
+    setSessionCookie(c, user.id)
+
+    return c.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatar_url: user.avatar_url
+      }
+    })
+  } catch (error) {
+    console.error('Error in mock login:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// ログアウト
+app.post('/auth/logout', (c) => {
+  clearSession(c)
+  return c.json({ success: true })
 })
 
 // ランダムに配信者を取得
@@ -199,6 +373,106 @@ app.post('/preference/:action', async (c) => {
     })
   } catch (error) {
     console.error('Error recording preference:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// ========================================
+// コメント機能（ログインユーザー限定）
+// ========================================
+
+// 配信者のコメント一覧を取得
+app.get('/comments/:streamerId', async (c) => {
+  try {
+    const streamerId = parseInt(c.req.param('streamerId'))
+
+    if (isNaN(streamerId)) {
+      return c.json({ error: 'Invalid streamer ID' }, 400)
+    }
+
+    const comments = await getCommentsByStreamerId(streamerId)
+
+    return c.json({ comments })
+  } catch (error) {
+    console.error('Error fetching comments:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// コメントを投稿（ログインユーザー限定）
+app.post('/comments', async (c) => {
+  try {
+    const userId = getSessionUserId(c)
+
+    if (!userId) {
+      return c.json({ error: 'Authentication required' }, 401)
+    }
+
+    const body = await c.req.json<{ streamerId: number; content: string }>()
+    const { streamerId, content } = body
+
+    if (!streamerId || !content) {
+      return c.json({ error: 'streamerId and content are required' }, 400)
+    }
+
+    if (content.trim().length === 0) {
+      return c.json({ error: 'Comment cannot be empty' }, 400)
+    }
+
+    if (content.length > 1000) {
+      return c.json({ error: 'Comment is too long (max 1000 characters)' }, 400)
+    }
+
+    // キャッシュに追加（定期的にDBに書き込まれる）
+    writeCache.addComment(streamerId, userId, content.trim())
+
+    return c.json({
+      success: true,
+      message: 'Comment will be posted shortly'
+    })
+  } catch (error) {
+    console.error('Error posting comment:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// ========================================
+// お問い合わせ機能（ログインユーザー限定）
+// ========================================
+
+// お問い合わせを送信（ログインユーザー限定）
+app.post('/contact', async (c) => {
+  try {
+    const userId = getSessionUserId(c)
+
+    if (!userId) {
+      return c.json({ error: 'Authentication required' }, 401)
+    }
+
+    const body = await c.req.json<{ subject?: string; message: string }>()
+    const { subject, message } = body
+
+    if (!message) {
+      return c.json({ error: 'message is required' }, 400)
+    }
+
+    if (message.trim().length === 0) {
+      return c.json({ error: 'Message cannot be empty' }, 400)
+    }
+
+    if (message.length > 5000) {
+      return c.json({ error: 'Message is too long (max 5000 characters)' }, 400)
+    }
+
+    // キャッシュに追加（定期的にDBに書き込まれる）
+    writeCache.addContactMessage(userId, subject?.trim() || null, message.trim())
+
+    return c.json({
+      success: true,
+      message: 'Your message will be sent shortly'
+    })
+  } catch (error) {
+    console.error('Error sending contact message:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })
