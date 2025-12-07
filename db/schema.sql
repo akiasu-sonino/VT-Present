@@ -15,11 +15,13 @@ CREATE TABLE streamers (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   platform VARCHAR(50),
-  avatar_url TEXT,
+  avatar_url VARCHAR(255),
   description TEXT,
   tags TEXT[],
   follower_count INTEGER DEFAULT 0,
   channel_url TEXT,
+  youtube_channel_id VARCHAR(24) UNIQUE,
+  twitch_user_id VARCHAR(15) UNIQUE,
   video_id TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );

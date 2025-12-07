@@ -1,0 +1,29 @@
+CLIENT_ID=zbr4gmw9k58h48rhzvdfys5nj2absa
+CLIENT_SECRET=btd039k2wf9ir791yamsh7xk2fzkjh
+
+curl -X POST "https://id.twitch.tv/oauth2/token" \
+-H "Content-Type: application/x-www-form-urlencoded" \
+-d "client_id=$CLIENT_ID" \
+-d "client_secret=$CLIENT_SECRET" \
+-d "grant_type=client_credentials"
+
+ACCESS_TOKEN=3kiqw4xupzdph5rwfmdlkd1fwq9ex6
+STREAMER_LOGIN="fps_shaka" # 確認したい配信者のユーザー名
+
+curl -X GET "https://api.twitch.tv/helix/users?login=$STREAMER_LOGIN" \
+-H "Client-ID: $CLIENT_ID" \
+-H "Authorization: Bearer $ACCESS_TOKEN"
+
+USER_ID="49207184" # ステップ2で取得したユーザーID
+
+curl -X GET "https://api.twitch.tv/helix/streams?user_id=$USER_ID" \
+-H "Client-ID: $CLIENT_ID" \
+-H "Authorization: Bearer $ACCESS_TOKEN"
+
+API_KEY=AIzaSyBP-l2liHEs-4ys6zDUSMjmJxkHv5_VRSU
+CHANNEL_HANDLE="uruhaichinose" # @なしで指定
+# 検索クエリに "@uruhaichinose" を設定
+curl -X GET "https://www.googleapis.com/youtube/v3/search?part=id&q=@$CHANNEL_HANDLE&type=channel&maxResults=1&key=$API_KEY"
+
+CHANNEL_ID="UC5LyYg6cCA4yHEYvtUsir3g"
+curl -X GET "https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=$CHANNEL_ID&type=video&eventType=live&key=$API_KEY"

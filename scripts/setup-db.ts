@@ -28,17 +28,7 @@ async function setupDatabase() {
     await sql.query(schema)
     console.log('✅ Tables created successfully\n')
 
-    // シードデータを読み込み
-    const seedPath = path.join(process.cwd(), 'db', 'seed.sql')
-    const seed = fs.readFileSync(seedPath, 'utf-8')
-
-    console.log('🌱 Inserting sample data...')
-    await sql.query(seed)
-    console.log('✅ Sample data inserted successfully\n')
-
-    // 確認
-    const result = await sql`SELECT COUNT(*) as count FROM streamers`
-    console.log(`✨ Setup complete! ${result.rows[0].count} streamers loaded.\n`)
+    process.exit(0)
 
   } catch (error) {
     console.error('❌ Error setting up database:', error)

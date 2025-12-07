@@ -1,0 +1,154 @@
+#!/bin/bash
+
+# =================================================================
+# 設定（本番では環境変数に置くのを推奨）
+# =================================================================
+YOUTUBE_API_KEY="AIzaSyBP-l2liHEs-4ys6zDUSMjmJxkHv5_VRSU"
+DB_CONN_STRING="postgresql://neondb_owner:npg_57hzmRBLTlcD@ep-shy-cloud-a1d938v2-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+# =================================================================
+# グローバル配列：INSERT VALUES を貯めて後で一括INSERTする
+# =================================================================
+INSERT_ROWS=()
+
+# =================================================================
+# 個別 YouTuber 1人分の情報を API 取得し、INSERT ROW を組み立てる
+# =================================================================
+insert_youtube_streamer() {
+    local youtube_handle="$1"
+    local platform="YouTube"
+    local tags_placeholder="{}"
+    local channel_url="https://www.youtube.com/@${youtube_handle}"
+
+    if [ -z "$youtube_handle" ]; then
+        echo "❌ エラー: YouTubeハンドル名を入力してください"
+        return 1
+    fi
+
+    echo "▶️ チャンネルID取得中: @$youtube_handle"
+
+    CHANNEL_ID=$(./tools/ChannelId.sh "$youtube_handle")
+
+    if [ -z "$CHANNEL_ID" ] || [ "$CHANNEL_ID" == "null" ]; then
+        echo "❌ チャンネルIDが取得できませんでした: @$youtube_handle"
+        return 1
+    fi
+
+    echo "  - チャンネルID: $CHANNEL_ID"
+
+    echo "▶️ チャンネル情報取得中..."
+
+    API_RESPONSE=$(curl -s \
+        "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${CHANNEL_ID}&key=${YOUTUBE_API_KEY}")
+
+    if [ "$(echo "$API_RESPONSE" | jq '.items | length')" -eq 0 ]; then
+        echo "❌ チャンネル情報が見つかりませんでした"
+        return 1
+    fi
+
+    # ---- JSON 抽出・安全エスケープ ----
+    name="$(echo "$API_RESPONSE" | jq -r '.items[0].snippet.title       | @json' | sed 's/^"//; s/"$//' | sed "s/'/''/g" | sed "s/^/'/; s/$/'/")"
+    avatar_url="$(echo "$API_RESPONSE" | jq -r '.items[0].snippet.thumbnails.medium.url | @json' | sed 's/^"//; s/"$//' | sed "s/'/''/g" | sed "s/^/'/; s/$/'/")"
+    follower_count=$(echo "$API_RESPONSE" | jq -r '.items[0].statistics.subscriberCount // 0')
+
+    # =================================================================
+    # 最新動画 (videoId) の取得
+    # =================================================================
+    echo "▶️ 最新動画ID取得中..."
+
+    LATEST_VIDEO_RESPONSE=$(curl -s \
+        "https://www.googleapis.com/youtube/v3/search?key=${YOUTUBE_API_KEY}&channelId=${CHANNEL_ID}&part=snippet&order=date&maxResults=1&type=video")
+
+    video_id=$(echo "$LATEST_VIDEO_RESPONSE" | jq -r '.items[0].id.videoId // empty')
+
+    if [ -z "$video_id" ]; then
+        echo "  ⚠️ 最新動画なし"
+        video_id=""
+    else
+        echo "  - 最新動画ID: $video_id"
+    fi
+
+    # =================================================================
+    # INSERT ROW を配列に貯める
+    # =================================================================
+    local row="(
+        $name,
+        '${platform}',
+        $avatar_url,
+        $name,
+        '${tags_placeholder}',
+        ${follower_count},
+        '${channel_url}',
+        '${CHANNEL_ID}',
+        NULL,
+        '${video_id}'
+    )"
+
+    INSERT_ROWS+=("$row")
+
+    echo "✨ データ準備完了: @$youtube_handle"
+}
+
+# =================================================================
+# メイン処理
+# =================================================================
+if [ $# -eq 0 ]; then
+    echo "使い方: ./insert_youtube_streamer.sh handle1 handle2 handle3 ..."
+    exit 1
+fi
+
+echo "============================="
+echo "▶️ 複数Youtuber情報を一括取得"
+echo "============================="
+
+for handle in "$@"; do
+    echo "-------------------------------------"
+    echo "▶️ 処理開始: @$handle"
+    echo "-------------------------------------"
+    insert_youtube_streamer "$handle"
+    echo ""
+done
+
+# =================================================================
+# まとめて1回だけ DB に INSERT / UPDATE
+# =================================================================
+if [ ${#INSERT_ROWS[@]} -eq 0 ]; then
+    echo "❌ 挿入できるデータがありません"
+    exit 1
+fi
+
+echo "============================="
+echo "▶️ DBへ一括INSERT実行開始"
+echo "  件数: ${#INSERT_ROWS[@]}"
+echo "============================="
+
+# 1つの INSERT 文にまとめる
+VALUES_SQL=$(printf ",\n%s" "${INSERT_ROWS[@]}")
+VALUES_SQL=${VALUES_SQL:2}  # 先頭のカンマを削除
+
+FINAL_QUERY="
+INSERT INTO streamers (
+    name, platform, avatar_url, description, tags,
+    follower_count, channel_url, youtube_channel_id,
+    twitch_user_id, video_id
+) VALUES
+${VALUES_SQL}
+ON CONFLICT (youtube_channel_id) DO UPDATE SET
+    name = EXCLUDED.name,
+    avatar_url = EXCLUDED.avatar_url,
+    follower_count = EXCLUDED.follower_count,
+    channel_url = EXCLUDED.channel_url,
+    video_id = EXCLUDED.video_id;
+"
+
+# 実行
+psql -c "$FINAL_QUERY" -d "$DB_CONN_STRING"
+
+if [ $? -eq 0 ]; then
+    echo "✨ 成功: DBに一括挿入/更新完了！"
+else
+    echo "❌ 失敗: DB挿入エラー"
+fi

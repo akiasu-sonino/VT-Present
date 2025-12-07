@@ -1,9 +1,11 @@
 /**
  * Database utility functions
  * Vercel Postgresへの接続とクエリを管理
+ * キャッシュレイヤーを使用してDBアクセスを最小限に抑える
  */
 
 import { sql } from '@vercel/postgres'
+import { cache } from './cache.js'
 
 export interface Streamer {
   id: number
@@ -37,64 +39,29 @@ export interface Preference {
 
 /**
  * ランダムに配信者を1人取得
+ * キャッシュされたデータから選択するため、DBアクセスなし
  * @param excludeIds 除外する配信者IDのリスト
  */
 export async function getRandomStreamer(excludeIds: number[] = []): Promise<Streamer | null> {
-  if (excludeIds.length > 0) {
-    // 配列をJSON配列に変換してPostgreSQLで扱う
-    const excludeIdsStr = JSON.stringify(excludeIds)
-    const result = await sql<Streamer>`
-      SELECT * FROM streamers
-      WHERE id NOT IN (SELECT value::int FROM json_array_elements_text(${excludeIdsStr}::json))
-      ORDER BY RANDOM()
-      LIMIT 1
-    `
-    return result.rows[0] || null
-  }
-
-  const result = await sql<Streamer>`
-    SELECT * FROM streamers
-    ORDER BY RANDOM()
-    LIMIT 1
-  `
-  return result.rows[0] || null
+  return cache.getRandomStreamer(excludeIds)
 }
 
 /**
  * ランダムに複数の配信者を取得（重複なし）
+ * キャッシュされたデータから選択するため、DBアクセスなし
  * @param count 取得する配信者の数
  * @param excludeIds 除外する配信者IDのリスト
  */
 export async function getRandomStreamers(count: number, excludeIds: number[] = []): Promise<Streamer[]> {
-  if (excludeIds.length > 0) {
-    // 配列をJSON配列に変換してPostgreSQLで扱う
-    const excludeIdsStr = JSON.stringify(excludeIds)
-    const result = await sql<Streamer>`
-      SELECT * FROM streamers
-      WHERE id NOT IN (SELECT value::int FROM json_array_elements_text(${excludeIdsStr}::json))
-      ORDER BY RANDOM()
-      LIMIT ${count}
-    `
-    return result.rows
-  }
-
-  const result = await sql<Streamer>`
-    SELECT * FROM streamers
-    ORDER BY RANDOM()
-    LIMIT ${count}
-  `
-  return result.rows
+  return cache.getRandomStreamers(count, excludeIds)
 }
 
 /**
  * IDで配信者を取得
+ * キャッシュされたデータから検索するため、DBアクセスなし
  */
 export async function getStreamerById(id: number): Promise<Streamer | null> {
-  const result = await sql<Streamer>`
-    SELECT * FROM streamers
-    WHERE id = ${id}
-  `
-  return result.rows[0] || null
+  return cache.getStreamerById(id)
 }
 
 /**
@@ -111,9 +78,16 @@ export async function createAnonymousUser(anonymousId: string): Promise<Anonymou
 
 /**
  * 匿名ユーザーを取得（存在しない場合は作成）
+ * キャッシュを使用してDBアクセスを削減
  */
 export async function getOrCreateAnonymousUser(anonymousId: string): Promise<AnonymousUser> {
-  // 既存ユーザーを検索
+  // キャッシュから取得を試みる
+  const cached = cache.getUser(anonymousId)
+  if (cached) {
+    return cached
+  }
+
+  // キャッシュになければDBから検索
   const existing = await sql<AnonymousUser>`
     SELECT * FROM anonymous_users
     WHERE anonymous_id = ${anonymousId}
@@ -127,15 +101,22 @@ export async function getOrCreateAnonymousUser(anonymousId: string): Promise<Ano
       WHERE anonymous_id = ${anonymousId}
       RETURNING *
     `
-    return updated.rows[0]
+    const user = updated.rows[0]
+
+    // キャッシュに保存
+    cache.setUser(anonymousId, user)
+    return user
   }
 
   // 新規作成
-  return createAnonymousUser(anonymousId)
+  const user = await createAnonymousUser(anonymousId)
+  cache.setUser(anonymousId, user)
+  return user
 }
 
 /**
  * 好みを記録
+ * 記録後、ユーザーアクションキャッシュを更新
  */
 export async function recordPreference(
   anonymousUserId: number,
@@ -147,49 +128,29 @@ export async function recordPreference(
     VALUES (${anonymousUserId}, ${streamerId}, ${action})
     RETURNING *
   `
+
+  // キャッシュを更新（次回のgetActionedStreamerIdsでDBアクセス不要に）
+  cache.addUserAction(anonymousUserId, streamerId)
+
   return result.rows[0]
 }
 
 /**
  * ユーザーがアクション済みの配信者IDリストを取得
+ * キャッシュから取得するため、頻繁なDBアクセスを回避
  */
 export async function getActionedStreamerIds(anonymousUserId: number): Promise<number[]> {
-  const result = await sql<{ streamer_id: number }>`
-    SELECT DISTINCT streamer_id
-    FROM preferences
-    WHERE anonymous_user_id = ${anonymousUserId}
-  `
-  return result.rows.map(row => row.streamer_id)
+  return cache.getUserActionedStreamerIds(anonymousUserId)
 }
 
 /**
  * アクション別に配信者リストを取得
+ * この関数は複雑なJOINとORDER BYが必要なため、キャッシュレイヤーに委譲
+ * （頻度が低いため、キャッシュ最適化の優先度は低い）
  */
 export async function getStreamersByAction(
   anonymousUserId: number,
   action?: PreferenceAction
 ): Promise<Streamer[]> {
-  if (action) {
-    const result = await sql<Streamer>`
-      SELECT s.*, MAX(p.created_at) as last_action_at
-      FROM streamers s
-      INNER JOIN preferences p ON s.id = p.streamer_id
-      WHERE p.anonymous_user_id = ${anonymousUserId}
-        AND p.action = ${action}
-      GROUP BY s.id
-      ORDER BY last_action_at DESC
-    `
-    return result.rows
-  }
-
-  // アクション指定なしの場合は全てのアクション済み配信者を取得
-  const result = await sql<Streamer>`
-    SELECT s.*, MAX(p.created_at) as last_action_at
-    FROM streamers s
-    INNER JOIN preferences p ON s.id = p.streamer_id
-    WHERE p.anonymous_user_id = ${anonymousUserId}
-    GROUP BY s.id
-    ORDER BY last_action_at DESC
-  `
-  return result.rows
+  return cache.getStreamersByAction(anonymousUserId, action)
 }

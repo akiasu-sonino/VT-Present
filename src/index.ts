@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction } from './lib/db.js'
 import { getOrCreateCurrentUser } from './lib/auth.js'
+import { cache } from './lib/cache.js'
 
 const app = new Hono().basePath('/api')
 
@@ -11,12 +12,27 @@ app.use('*', cors())
 // APIヘルスチェック
 app.get('/health', (c) => {
   return c.json({
-    message: 'VT-Present API',
+    message: 'OshiStream API',
     version: '1.0.0',
     endpoints: {
       health: '/api/health',
       random: '/api/streams/random',
-      preference: '/api/preference/:action'
+      preference: '/api/preference/:action',
+      cacheStats: '/api/cache/stats'
+    }
+  })
+})
+
+// キャッシュ統計情報（デバッグ用）
+app.get('/cache/stats', (c) => {
+  const stats = cache.getStats()
+  return c.json({
+    cache: stats,
+    description: {
+      streamers: 'All streamer data cached for 1 hour',
+      userActions: 'User action history cached per user',
+      users: 'Anonymous user data cached',
+      ttl: 'Time to live in milliseconds'
     }
   })
 })

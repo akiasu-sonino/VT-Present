@@ -91,8 +91,8 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1 className="title">VT-Present</h1>
-        <p className="subtitle">埋もれた才能を見つけ出す</p>
+        <h1 className="title">OshiStream</h1>
+        <p className="subtitle">新たな推しと出会う</p>
 
         <nav className="tab-navigation">
           <button
