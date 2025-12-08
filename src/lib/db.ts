@@ -298,3 +298,57 @@ export async function getCommentsByStreamerId(streamerId: number): Promise<Comme
   `
   return result.rows
 }
+
+/**
+ * 配信者にタグを追加
+ * 既存のタグ配列に新しいタグを追加（重複チェックあり）
+ */
+export async function addTagToStreamer(streamerId: number, tag: string): Promise<Streamer | null> {
+  // タグの正規化（前後の空白を削除）
+  const normalizedTag = tag.trim()
+
+  if (!normalizedTag) {
+    throw new Error('Tag cannot be empty')
+  }
+
+  // タグを追加（重複を避けるため、既に存在しない場合のみ追加）
+  const result = await sql<Streamer>`
+    UPDATE streamers
+    SET tags = CASE
+      WHEN ${normalizedTag} = ANY(tags) THEN tags
+      ELSE array_append(tags, ${normalizedTag})
+    END
+    WHERE id = ${streamerId}
+    RETURNING *
+  `
+
+  if (result.rows.length === 0) {
+    return null
+  }
+
+  // キャッシュを無効化（次回のリクエストで再取得）
+  cache.invalidate()
+
+  return result.rows[0]
+}
+
+/**
+ * 配信者からタグを削除
+ */
+export async function removeTagFromStreamer(streamerId: number, tag: string): Promise<Streamer | null> {
+  const result = await sql<Streamer>`
+    UPDATE streamers
+    SET tags = array_remove(tags, ${tag})
+    WHERE id = ${streamerId}
+    RETURNING *
+  `
+
+  if (result.rows.length === 0) {
+    return null
+  }
+
+  // キャッシュを無効化（次回のリクエストで再取得）
+  cache.invalidate()
+
+  return result.rows[0]
+}

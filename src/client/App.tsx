@@ -3,6 +3,7 @@ import StreamerCard from './components/StreamerCard'
 import PreferencesList from './components/PreferencesList'
 import TagFilter from './components/TagFilter'
 import UserMenu from './components/UserMenu'
+import { AdBanner } from './components/AdBanner'
 import './styles/App.css'
 
 interface Streamer {
@@ -57,6 +58,8 @@ function App() {
   const [submittingComment, setSubmittingComment] = useState(false)
   const [liveStatus, setLiveStatus] = useState<Record<string, LiveInfo>>({})
   const [showLiveOnly, setShowLiveOnly] = useState(false)
+  const [newTag, setNewTag] = useState('')
+  const [addingTag, setAddingTag] = useState(false)
 
   useEffect(() => {
     fetchStreamers()
@@ -162,6 +165,63 @@ function App() {
     }
   }
 
+  const handleAddTag = async () => {
+    if (!newTag.trim() || !selectedStreamer || !currentUser) return
+
+    try {
+      setAddingTag(true)
+
+      const response = await fetch(`/api/streamers/${selectedStreamer.id}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag: newTag.trim() })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // 楽観的UI更新
+        setSelectedStreamer(prev => prev ? { ...prev, tags: data.streamer.tags } : null)
+        // streamersリストも更新
+        setStreamers(prev => prev.map(s => s.id === selectedStreamer.id ? { ...s, tags: data.streamer.tags } : s))
+        setNewTag('')
+      } else {
+        const data = await response.json()
+        alert(data.error || 'タグの追加に失敗しました')
+      }
+    } catch (err) {
+      console.error('Error adding tag:', err)
+      alert('タグの追加に失敗しました')
+    } finally {
+      setAddingTag(false)
+    }
+  }
+
+  const handleRemoveTag = async (tag: string) => {
+    if (!selectedStreamer || !currentUser) return
+
+    if (!confirm(`タグ「${tag}」を削除しますか？`)) return
+
+    try {
+      const response = await fetch(`/api/streamers/${selectedStreamer.id}/tags/${encodeURIComponent(tag)}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // 楽観的UI更新
+        setSelectedStreamer(prev => prev ? { ...prev, tags: data.streamer.tags } : null)
+        // streamersリストも更新
+        setStreamers(prev => prev.map(s => s.id === selectedStreamer.id ? { ...s, tags: data.streamer.tags } : s))
+      } else {
+        const data = await response.json()
+        alert(data.error || 'タグの削除に失敗しました')
+      }
+    } catch (err) {
+      console.error('Error removing tag:', err)
+      alert('タグの削除に失敗しました')
+    }
+  }
+
   const fetchStreamers = async () => {
     try {
       setLoading(true)
@@ -254,6 +314,9 @@ function App() {
         </nav>
       </header>
 
+      {/* 広告バナー - ヘッダー下 */}
+      <AdBanner />
+
       <main className="main">
         {activeTab === 'discover' && (
           <>
@@ -327,6 +390,46 @@ function App() {
             </button>
             <h2>{selectedStreamer.name}</h2>
             <p>{selectedStreamer.description}</p>
+
+            {/* タグセクション */}
+            <div className="modal-tags-section">
+              <h3>タグ</h3>
+              <div className="tags">
+                {selectedStreamer.tags.map((tag, index) => (
+                  <span key={index} className="tag modal-tag">
+                    #{tag}
+                    {currentUser && (
+                      <button
+                        className="tag-remove-btn"
+                        onClick={() => handleRemoveTag(tag)}
+                        title="タグを削除"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+
+              {currentUser && (
+                <div className="tag-add-form">
+                  <input
+                    type="text"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    placeholder="新しいタグを追加..."
+                    maxLength={50}
+                    disabled={addingTag}
+                  />
+                  <button
+                    onClick={handleAddTag}
+                    disabled={!newTag.trim() || addingTag}
+                  >
+                    {addingTag ? '追加中...' : '追加'}
+                  </button>
+                </div>
+              )}
+            </div>
 
             {selectedStreamer.video_id && (
               <div className="video-container">

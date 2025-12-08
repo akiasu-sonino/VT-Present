@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { cache } from './lib/cache.js'
 import { writeCache } from './lib/write-cache.js'
@@ -560,6 +560,88 @@ app.post('/contact', async (c) => {
     })
   } catch (error) {
     console.error('Error sending contact message:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// ========================================
+// タグ管理機能（ログインユーザー限定）
+// ========================================
+
+// 配信者にタグを追加（ログインユーザー限定）
+app.post('/streamers/:id/tags', async (c) => {
+  try {
+    const userId = getSessionUserId(c)
+
+    if (!userId) {
+      return c.json({ error: 'Authentication required' }, 401)
+    }
+
+    const streamerId = parseInt(c.req.param('id'))
+
+    if (isNaN(streamerId)) {
+      return c.json({ error: 'Invalid streamer ID' }, 400)
+    }
+
+    const body = await c.req.json<{ tag: string }>()
+    const { tag } = body
+
+    if (!tag || tag.trim().length === 0) {
+      return c.json({ error: 'Tag is required' }, 400)
+    }
+
+    if (tag.length > 50) {
+      return c.json({ error: 'Tag is too long (max 50 characters)' }, 400)
+    }
+
+    const updatedStreamer = await addTagToStreamer(streamerId, tag)
+
+    if (!updatedStreamer) {
+      return c.json({ error: 'Streamer not found' }, 404)
+    }
+
+    return c.json({
+      success: true,
+      streamer: updatedStreamer
+    })
+  } catch (error) {
+    console.error('Error adding tag:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// 配信者からタグを削除（ログインユーザー限定）
+app.delete('/streamers/:id/tags/:tag', async (c) => {
+  try {
+    const userId = getSessionUserId(c)
+
+    if (!userId) {
+      return c.json({ error: 'Authentication required' }, 401)
+    }
+
+    const streamerId = parseInt(c.req.param('id'))
+    const tag = c.req.param('tag')
+
+    if (isNaN(streamerId)) {
+      return c.json({ error: 'Invalid streamer ID' }, 400)
+    }
+
+    if (!tag) {
+      return c.json({ error: 'Tag is required' }, 400)
+    }
+
+    const updatedStreamer = await removeTagFromStreamer(streamerId, tag)
+
+    if (!updatedStreamer) {
+      return c.json({ error: 'Streamer not found' }, 404)
+    }
+
+    return c.json({
+      success: true,
+      streamer: updatedStreamer
+    })
+  } catch (error) {
+    console.error('Error removing tag:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })

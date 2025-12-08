@@ -278,6 +278,15 @@ class DataCache {
   }
 
   /**
+   * ストリーマーキャッシュを無効化
+   * タグの追加・削除時など、ストリーマーデータが更新された時に呼び出す
+   */
+  invalidate(): void {
+    console.log('[Cache] Invalidating streamers cache')
+    this.streamersCache = null
+  }
+
+  /**
    * キャッシュの統計情報を取得（デバッグ用）
    */
   getStats(): {
