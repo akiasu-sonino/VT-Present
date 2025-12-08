@@ -1,11 +1,12 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { cache } from './lib/cache.js'
 import { writeCache } from './lib/write-cache.js'
 import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessionCookie, getSessionUserId, clearSession, isDevelopment, createMockUser } from './lib/oauth.js'
+import { getLiveStreamStatus } from './lib/youtube.js'
 
 const app = new Hono().basePath('/api')
 
@@ -298,6 +299,56 @@ app.get('/streamers/:id', async (c) => {
   }
 })
 
+// ライブ配信状態を取得
+app.get('/streamers/live-status', async (c) => {
+  try {
+    const apiKey = process.env.YOUTUBE_API_KEY
+
+    if (!apiKey) {
+      console.error('YOUTUBE_API_KEY is not configured')
+      return c.json({ error: 'YouTube API is not configured' }, 503)
+    }
+
+    // キャッシュから取得を試みる
+    let liveStatusMap = cache.getLiveStatus()
+
+    if (!liveStatusMap) {
+      // キャッシュミス: 全配信者を取得
+      const streamers = await cache.getStreamers()
+
+      // YouTubeチャンネルIDを持つ配信者のみをフィルタ
+      const channelIds = streamers
+        .filter(s => s.youtube_channel_id)
+        .map(s => s.youtube_channel_id as string)
+
+      if (channelIds.length === 0) {
+        return c.json({ liveStatus: {} })
+      }
+
+      // YouTube APIでライブ状態を取得
+      console.log(`[LiveStatus] Fetching live status for ${channelIds.length} channels`)
+      const liveStatusList = await getLiveStreamStatus(channelIds, apiKey)
+
+      // Map形式に変換
+      liveStatusMap = new Map(liveStatusList.map(info => [info.channelId, info]))
+
+      // キャッシュに保存（5分間）
+      cache.setLiveStatus(liveStatusMap)
+    }
+
+    // オブジェクト形式に変換してレスポンス
+    const liveStatus: Record<string, any> = {}
+    liveStatusMap.forEach((info, channelId) => {
+      liveStatus[channelId] = info
+    })
+
+    return c.json({ liveStatus })
+  } catch (error) {
+    console.error('Error fetching live status:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
 // アクション済み配信者IDリストを取得
 app.get('/preferences/excluded', async (c) => {
   try {
@@ -373,6 +424,31 @@ app.post('/preference/:action', async (c) => {
     })
   } catch (error) {
     console.error('Error recording preference:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// 好みを削除（選択を取り消す）
+app.delete('/preference/:streamerId', async (c) => {
+  try {
+    const streamerId = parseInt(c.req.param('streamerId'))
+
+    if (isNaN(streamerId)) {
+      return c.json({ error: 'Invalid streamer ID' }, 400)
+    }
+
+    // 匿名ユーザーを取得または作成
+    const { user } = await getOrCreateCurrentUser(c)
+
+    // 好みを削除
+    await deletePreference(user.id, streamerId)
+
+    return c.json({
+      success: true,
+      message: 'Preference deleted successfully'
+    })
+  } catch (error) {
+    console.error('Error deleting preference:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })

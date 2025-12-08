@@ -39,6 +39,49 @@
   backdrop-filter: blur(4px);
 }
 
+.live-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(220, 38, 38, 0.95);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+}
+
+.live-indicator {
+  animation: pulse 1.5s ease-in-out infinite;
+  font-size: 0.6rem;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.live-text {
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.viewer-count {
+  margin-left: 2px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+}
+
 .card-content {
   padding: 20px;
 }
@@ -136,6 +179,16 @@
 .action-soso:hover {
   background: linear-gradient(135deg, #ffa34d 0%, #ff7f50 100%);
   color: white;
+}
+
+.action-remove {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+.action-remove:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 6px 12px rgba(220, 38, 38, 0.3);
 }
 
 @media (max-width: 768px) {

@@ -8,6 +8,7 @@
 
 import { sql } from '@vercel/postgres'
 import type { Streamer, AnonymousUser, PreferenceAction } from './db.js'
+import type { LiveStreamInfo } from './youtube.js'
 
 interface CacheEntry<T> {
   data: T
@@ -22,8 +23,10 @@ class DataCache {
   private streamersCache: CacheEntry<Streamer[]> | null = null
   private userActionsCache: Map<number, CacheEntry<number[]>> = new Map()
   private usersCache: Map<string, CacheEntry<AnonymousUser>> = new Map()
+  private liveStatusCache: CacheEntry<Map<string, LiveStreamInfo>> | null = null
 
   private readonly TTL = 60 * 60 * 1000 // 1時間（ミリ秒）
+  private readonly LIVE_STATUS_TTL = 5 * 60 * 1000 // 5分（ミリ秒）
 
   /**
    * 全ストリーマーをキャッシュから取得
@@ -155,6 +158,25 @@ class DataCache {
   }
 
   /**
+   * ユーザーアクションをキャッシュから削除
+   * プリファレンス削除時に呼び出される
+   * @param userId 匿名ユーザーID
+   * @param streamerId 配信者ID
+   */
+  removeUserAction(userId: number, streamerId: number): void {
+    const cached = this.userActionsCache.get(userId)
+
+    if (cached) {
+      // キャッシュから削除
+      const index = cached.data.indexOf(streamerId)
+      if (index > -1) {
+        cached.data.splice(index, 1)
+        console.log(`[Cache] Removed streamer ${streamerId} from user ${userId} actions cache`)
+      }
+    }
+  }
+
+  /**
    * アクション別に配信者リストを取得
    * この関数は複雑なJOINが必要なため、DBから直接取得
    * （キャッシュ最適化の対象外）
@@ -234,12 +256,35 @@ class DataCache {
   }
 
   /**
+   * ライブ配信状態をキャッシュから取得
+   */
+  getLiveStatus(): Map<string, LiveStreamInfo> | null {
+    if (this.liveStatusCache && this.liveStatusCache.expiresAt > Date.now()) {
+      console.log('[Cache] Using cached live status data')
+      return this.liveStatusCache.data
+    }
+    return null
+  }
+
+  /**
+   * ライブ配信状態をキャッシュに保存（5分間）
+   */
+  setLiveStatus(liveStatusMap: Map<string, LiveStreamInfo>): void {
+    this.liveStatusCache = {
+      data: liveStatusMap,
+      expiresAt: Date.now() + this.LIVE_STATUS_TTL
+    }
+    console.log(`[Cache] Cached live status for ${liveStatusMap.size} channels (5 min TTL)`)
+  }
+
+  /**
    * キャッシュの統計情報を取得（デバッグ用）
    */
   getStats(): {
     streamers: { cached: boolean; count: number; ttl: number }
     userActions: { count: number }
     users: { count: number }
+    liveStatus: { cached: boolean; count: number; ttl: number }
   } {
     return {
       streamers: {
@@ -252,6 +297,11 @@ class DataCache {
       },
       users: {
         count: this.usersCache.size
+      },
+      liveStatus: {
+        cached: !!this.liveStatusCache,
+        count: this.liveStatusCache?.data.size || 0,
+        ttl: this.liveStatusCache ? Math.max(0, this.liveStatusCache.expiresAt - Date.now()) : 0
       }
     }
   }

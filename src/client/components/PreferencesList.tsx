@@ -11,7 +11,16 @@ interface Streamer {
   tags: string[]
   follower_count: number
   channel_url?: string
+  youtube_channel_id?: string
+  twitch_user_id?: string
   video_id?: string
+}
+
+interface LiveInfo {
+  isLive: boolean
+  viewerCount?: number
+  videoId?: string
+  title?: string
 }
 
 type FilterType = 'all' | 'LIKE' | 'SOSO'
@@ -22,10 +31,18 @@ function PreferencesList() {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterType>('all')
   const [selectedStreamer, setSelectedStreamer] = useState<Streamer | null>(null)
+  const [liveStatus, setLiveStatus] = useState<Record<string, LiveInfo>>({})
 
   useEffect(() => {
     fetchPreferences()
   }, [filter])
+
+  // ライブ状態を定期的に取得（5分ごと）
+  useEffect(() => {
+    fetchLiveStatus()
+    const interval = setInterval(fetchLiveStatus, 5 * 60 * 1000) // 5分
+    return () => clearInterval(interval)
+  }, [])
 
   const fetchPreferences = async () => {
     try {
@@ -48,6 +65,36 @@ function PreferencesList() {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchLiveStatus = async () => {
+    try {
+      const response = await fetch('/api/streamers/live-status')
+      const data = await response.json()
+      if (response.ok && data.liveStatus) {
+        setLiveStatus(data.liveStatus)
+      }
+    } catch (err) {
+      console.error('Error fetching live status:', err)
+    }
+  }
+
+  const handleRemovePreference = async (streamerId: number) => {
+    try {
+      const response = await fetch(`/api/preference/${streamerId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        // リストから削除
+        setStreamers(prevStreamers => prevStreamers.filter(s => s.id !== streamerId))
+      } else {
+        setError('選択の解除に失敗しました')
+      }
+    } catch (err) {
+      setError('選択の解除に失敗しました')
+      console.error(err)
     }
   }
 
@@ -104,13 +151,21 @@ function PreferencesList() {
 
         {!loading && !error && streamers.length > 0 && (
           <div className="streamers-grid">
-            {streamers.map((streamer) => (
-              <StreamerCard
-                key={streamer.id}
-                streamer={streamer}
-                onClick={() => setSelectedStreamer(streamer)}
-              />
-            ))}
+            {streamers.map((streamer) => {
+              const liveInfo = streamer.youtube_channel_id
+                ? liveStatus[streamer.youtube_channel_id]
+                : undefined
+              return (
+                <StreamerCard
+                  key={streamer.id}
+                  streamer={streamer}
+                  liveInfo={liveInfo}
+                  onClick={() => setSelectedStreamer(streamer)}
+                  onRemove={handleRemovePreference}
+                  showRemoveButton={true}
+                />
+              )
+            })}
           </div>
         )}
       </div>

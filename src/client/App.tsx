@@ -14,6 +14,8 @@ interface Streamer {
   tags: string[]
   follower_count: number
   channel_url?: string
+  youtube_channel_id?: string
+  twitch_user_id?: string
   video_id?: string
 }
 
@@ -33,6 +35,13 @@ interface Comment {
   user?: User
 }
 
+interface LiveInfo {
+  isLive: boolean
+  viewerCount?: number
+  videoId?: string
+  title?: string
+}
+
 type TabType = 'discover' | 'preferences'
 
 function App() {
@@ -46,6 +55,8 @@ function App() {
   const [comments, setComments] = useState<Comment[]>([])
   const [commentText, setCommentText] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
+  const [liveStatus, setLiveStatus] = useState<Record<string, LiveInfo>>({})
+  const [showLiveOnly, setShowLiveOnly] = useState(false)
 
   useEffect(() => {
     fetchStreamers()
@@ -61,6 +72,13 @@ function App() {
     }
   }, [selectedStreamer])
 
+  // ライブ状態を定期的に取得（5分ごと）
+  useEffect(() => {
+    fetchLiveStatus()
+    const interval = setInterval(fetchLiveStatus, 5 * 60 * 1000) // 5分
+    return () => clearInterval(interval)
+  }, [])
+
   const fetchCurrentUser = async () => {
     try {
       const response = await fetch('/api/auth/me')
@@ -70,6 +88,18 @@ function App() {
       }
     } catch (err) {
       console.error('Error fetching current user:', err)
+    }
+  }
+
+  const fetchLiveStatus = async () => {
+    try {
+      const response = await fetch('/api/streamers/live-status')
+      const data = await response.json()
+      if (response.ok && data.liveStatus) {
+        setLiveStatus(data.liveStatus)
+      }
+    } catch (err) {
+      console.error('Error fetching live status:', err)
     }
   }
 
@@ -226,7 +256,15 @@ function App() {
       <main className="main">
         {activeTab === 'discover' && (
           <>
-            <TagFilter selectedTags={selectedTags} onTagsChange={setSelectedTags} />
+            <div className="filters-container">
+              <TagFilter selectedTags={selectedTags} onTagsChange={setSelectedTags} />
+              <button
+                className={`live-filter-btn ${showLiveOnly ? 'active' : ''}`}
+                onClick={() => setShowLiveOnly(!showLiveOnly)}
+              >
+                {showLiveOnly ? '● ライブ中のみ表示' : 'ライブ中のみ表示'}
+              </button>
+            </div>
 
             {loading && (
               <div className="loading">
@@ -250,14 +288,28 @@ function App() {
 
             {!loading && !error && streamers.length > 0 && (
               <div className="streamers-grid">
-                {streamers.map((streamer, index) => (
-                  <StreamerCard
-                    key={`${streamer.id}-${index}`}
-                    streamer={streamer}
-                    onClick={() => setSelectedStreamer(streamer)}
-                    onAction={handleAction}
-                  />
-                ))}
+                {streamers
+                  .filter(streamer => {
+                    // ライブ中のみフィルタ
+                    if (showLiveOnly && streamer.youtube_channel_id) {
+                      return liveStatus[streamer.youtube_channel_id]?.isLive
+                    }
+                    return true
+                  })
+                  .map((streamer, index) => {
+                    const liveInfo = streamer.youtube_channel_id
+                      ? liveStatus[streamer.youtube_channel_id]
+                      : undefined
+                    return (
+                      <StreamerCard
+                        key={`${streamer.id}-${index}`}
+                        streamer={streamer}
+                        liveInfo={liveInfo}
+                        onClick={() => setSelectedStreamer(streamer)}
+                        onAction={handleAction}
+                      />
+                    )
+                  })}
               </div>
             )}
           </>

@@ -16,6 +16,8 @@ export interface Streamer {
   tags: string[]
   follower_count: number
   channel_url?: string
+  youtube_channel_id?: string
+  twitch_user_id?: string
   video_id?: string
   created_at: Date
 }
@@ -163,6 +165,24 @@ export async function recordPreference(
   cache.addUserAction(anonymousUserId, streamerId)
 
   return result.rows[0]
+}
+
+/**
+ * 配信者の好み設定を削除
+ * 削除後、ユーザーアクションキャッシュを更新
+ */
+export async function deletePreference(
+  anonymousUserId: number,
+  streamerId: number
+): Promise<void> {
+  await sql`
+    DELETE FROM preferences
+    WHERE anonymous_user_id = ${anonymousUserId}
+      AND streamer_id = ${streamerId}
+  `
+
+  // キャッシュから削除
+  cache.removeUserAction(anonymousUserId, streamerId)
 }
 
 /**
