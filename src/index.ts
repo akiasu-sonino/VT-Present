@@ -7,8 +7,39 @@ import { cache } from './lib/cache.js'
 import { writeCache } from './lib/write-cache.js'
 import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessionCookie, getSessionUserId, clearSession, isDevelopment, createMockUser } from './lib/oauth.js'
 import { getLiveStreamStatus } from './lib/youtube.js'
+import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 
-const app = new Hono().basePath('/api')
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+// メインアプリケーション
+const mainApp = new Hono()
+
+// 静的ページルート
+mainApp.get('/terms', async (c) => {
+  try {
+    const html = await readFile(join(__dirname, 'views', 'terms.html'), 'utf-8')
+    return c.html(html)
+  } catch (error) {
+    console.error('Error loading terms page:', error)
+    return c.html('<h1>ページが見つかりません</h1>', 404)
+  }
+})
+
+mainApp.get('/privacy', async (c) => {
+  try {
+    const html = await readFile(join(__dirname, 'views', 'privacy.html'), 'utf-8')
+    return c.html(html)
+  } catch (error) {
+    console.error('Error loading privacy page:', error)
+    return c.html('<h1>ページが見つかりません</h1>', 404)
+  }
+})
+
+// APIルート
+const app = new Hono()
 
 // CORS設定（フロントエンドからのアクセスを許可）
 app.use('*', cors())
@@ -646,4 +677,7 @@ app.delete('/streamers/:id/tags/:tag', async (c) => {
   }
 })
 
-export default app
+// APIをメインアプリにマウント
+mainApp.route('/api', app)
+
+export default mainApp
