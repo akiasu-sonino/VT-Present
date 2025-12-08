@@ -297,6 +297,7 @@ app.get('/streamers/live-status', async (c) => {
       const streamers = await cache.getStreamers()
 
       // YouTubeチャンネルIDを持つ配信者のみをフィルタ
+      // TODO: is_live_streamerフラグでさらに絞り込み（200チャンネル程度）
       const channelIds = streamers
         .filter(s => s.youtube_channel_id)
         .map(s => s.youtube_channel_id as string)
@@ -305,15 +306,15 @@ app.get('/streamers/live-status', async (c) => {
         return c.json({ liveStatus: {} })
       }
 
-      // YouTube APIでライブ状態を取得
-      console.log(`[LiveStatus] Fetching live status for ${channelIds.length} channels`)
+      // RSS + Videos API方式でライブ状態を取得（クォータ大幅削減）
+      console.log(`[LiveStatus] Fetching live status for ${channelIds.length} channels (RSS + Videos API)`)
       try {
         const liveStatusList = await getLiveStreamStatus(channelIds, apiKey)
 
         // Map形式に変換
         liveStatusMap = new Map(liveStatusList.map(info => [info.channelId, info]))
 
-        // キャッシュに保存（5分間）
+        // キャッシュに保存（12時間）
         cache.setLiveStatus(liveStatusMap)
       } catch (youtubeError) {
         console.error('[LiveStatus] YouTube API error:', youtubeError)
@@ -324,9 +325,11 @@ app.get('/streamers/live-status', async (c) => {
 
     // オブジェクト形式に変換してレスポンス
     const liveStatus: Record<string, any> = {}
-    liveStatusMap.forEach((info, channelId) => {
-      liveStatus[channelId] = info
-    })
+    if (liveStatusMap) {
+      liveStatusMap.forEach((info, channelId) => {
+        liveStatus[channelId] = info
+      })
+    }
 
     return c.json({ liveStatus })
   } catch (error) {

@@ -72,11 +72,11 @@ function App() {
     }
   }, [selectedStreamer])
 
-  // ライブ状態を定期的に取得（15分ごと）
-  // YouTube APIクォータ節約のため、ポーリング間隔を延長
+  // ライブ状態を定期的に取得（1時間ごと）
+  // RSS + Videos API方式でクォータ大幅削減（200チャンネル×約0.3 units = 60 units/回）
   useEffect(() => {
     fetchLiveStatus()
-    const interval = setInterval(fetchLiveStatus, 15 * 60 * 1000) // 15分
+    const interval = setInterval(fetchLiveStatus, 60 * 60 * 1000) // 1時間
     return () => clearInterval(interval)
   }, [])
 
