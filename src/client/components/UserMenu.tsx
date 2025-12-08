@@ -116,9 +116,16 @@ function UserMenu({ onUserChange }: UserMenuProps) {
   }
 
   if (!user) {
+    // 開発環境ではモックログイン、本番環境ではGoogleログイン
+    const isDevelopment = import.meta.env.DEV
+
     return (
       <div className="user-menu">
-        <button className="login-button" onClick={handleMockLogin} disabled={loggingIn}>
+        <button
+          className="login-button"
+          onClick={isDevelopment ? handleMockLogin : handleGoogleLogin}
+          disabled={loggingIn}
+        >
           {loggingIn ? 'ログイン中...' : '👤 ログイン'}
         </button>
       </div>

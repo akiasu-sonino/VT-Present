@@ -283,9 +283,11 @@ app.get('/streamers/live-status', async (c) => {
     const apiKey = process.env.YOUTUBE_API_KEY
 
     if (!apiKey) {
-      console.error('YOUTUBE_API_KEY is not configured')
+      console.error('[LiveStatus] YOUTUBE_API_KEY is not configured')
       return c.json({ error: 'YouTube API is not configured' }, 503)
     }
+
+    console.log('[LiveStatus] API Key present:', !!apiKey, 'Length:', apiKey?.length || 0)
 
     // キャッシュから取得を試みる
     let liveStatusMap = cache.getLiveStatus()
@@ -305,13 +307,19 @@ app.get('/streamers/live-status', async (c) => {
 
       // YouTube APIでライブ状態を取得
       console.log(`[LiveStatus] Fetching live status for ${channelIds.length} channels`)
-      const liveStatusList = await getLiveStreamStatus(channelIds, apiKey)
+      try {
+        const liveStatusList = await getLiveStreamStatus(channelIds, apiKey)
 
-      // Map形式に変換
-      liveStatusMap = new Map(liveStatusList.map(info => [info.channelId, info]))
+        // Map形式に変換
+        liveStatusMap = new Map(liveStatusList.map(info => [info.channelId, info]))
 
-      // キャッシュに保存（5分間）
-      cache.setLiveStatus(liveStatusMap)
+        // キャッシュに保存（5分間）
+        cache.setLiveStatus(liveStatusMap)
+      } catch (youtubeError) {
+        console.error('[LiveStatus] YouTube API error:', youtubeError)
+        // エラーの場合は空のMapを返す
+        return c.json({ liveStatus: {} })
+      }
     }
 
     // オブジェクト形式に変換してレスポンス

@@ -84,7 +84,12 @@ async function checkChannelLiveStatus(
     const searchResponse = await fetch(searchUrl.toString())
 
     if (!searchResponse.ok) {
-      console.error(`YouTube API search error for channel ${channelId}:`, searchResponse.status)
+      const errorText = await searchResponse.text()
+      console.error(`YouTube API search error for channel ${channelId}:`, {
+        status: searchResponse.status,
+        statusText: searchResponse.statusText,
+        error: errorText
+      })
       return { channelId, isLive: false }
     }
 
