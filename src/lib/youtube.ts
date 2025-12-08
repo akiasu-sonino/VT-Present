@@ -24,15 +24,6 @@ interface YouTubeSearchResponse {
   }>
 }
 
-interface YouTubeVideoResponse {
-  items?: Array<{
-    id: string
-    liveStreamingDetails?: {
-      concurrentViewers?: string
-    }
-  }>
-}
-
 /**
  * チャンネルIDのリストからライブ配信状態を取得
  * @param channelIds YouTubeチャンネルIDの配列
@@ -49,8 +40,9 @@ export async function getLiveStreamStatus(
 
   const results: LiveStreamInfo[] = []
 
-  // チャンネルIDを5個ずつバッチ処理（APIクォータ節約）
-  const batchSize = 5
+  // チャンネルIDを10個ずつバッチ処理（APIクォータ節約）
+  // バッチサイズを大きくして、並列リクエスト回数を削減
+  const batchSize = 10
   for (let i = 0; i < channelIds.length; i += batchSize) {
     const batch = channelIds.slice(i, i + batchSize)
 
@@ -60,6 +52,11 @@ export async function getLiveStreamStatus(
     )
 
     results.push(...batchResults)
+
+    // バッチ間に少し待機（レート制限対策）
+    if (i + batchSize < channelIds.length) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
   }
 
   return results
@@ -104,34 +101,14 @@ async function checkChannelLiveStatus(
     const videoId = liveVideo.id.videoId
     const title = liveVideo.snippet.title
 
-    // Videos APIで視聴者数を取得
-    const videoUrl = new URL('https://www.googleapis.com/youtube/v3/videos')
-    videoUrl.searchParams.set('part', 'liveStreamingDetails')
-    videoUrl.searchParams.set('id', videoId)
-    videoUrl.searchParams.set('key', apiKey)
-
-    const videoResponse = await fetch(videoUrl.toString())
-
-    if (!videoResponse.ok) {
-      return {
-        channelId,
-        isLive: true,
-        videoId,
-        title,
-      }
-    }
-
-    const videoData: YouTubeVideoResponse = await videoResponse.json()
-    const viewerCount = videoData.items?.[0]?.liveStreamingDetails?.concurrentViewers
-      ? parseInt(videoData.items[0].liveStreamingDetails.concurrentViewers)
-      : undefined
-
+    // YouTube APIクォータ節約のため、視聴者数の取得をスキップ
+    // Videos APIは1ユニット消費するが、頻繁な呼び出しでクォータを消費する
     return {
       channelId,
       isLive: true,
       videoId,
       title,
-      viewerCount,
+      // viewerCountは取得しない（APIクォータ節約）
     }
   } catch (error) {
     console.error(`Error checking live status for channel ${channelId}:`, error)

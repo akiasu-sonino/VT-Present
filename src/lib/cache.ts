@@ -26,7 +26,7 @@ class DataCache {
   private liveStatusCache: CacheEntry<Map<string, LiveStreamInfo>> | null = null
 
   private readonly TTL = 60 * 60 * 1000 // 1時間（ミリ秒）
-  private readonly LIVE_STATUS_TTL = 5 * 60 * 1000 // 5分（ミリ秒）
+  private readonly LIVE_STATUS_TTL = 60 * 60 * 1000 // 1時間（ミリ秒） - YouTube APIクォータ節約のため
 
   /**
    * 全ストリーマーをキャッシュから取得
@@ -267,14 +267,14 @@ class DataCache {
   }
 
   /**
-   * ライブ配信状態をキャッシュに保存（5分間）
+   * ライブ配信状態をキャッシュに保存（1時間）
    */
   setLiveStatus(liveStatusMap: Map<string, LiveStreamInfo>): void {
     this.liveStatusCache = {
       data: liveStatusMap,
       expiresAt: Date.now() + this.LIVE_STATUS_TTL
     }
-    console.log(`[Cache] Cached live status for ${liveStatusMap.size} channels (5 min TTL)`)
+    console.log(`[Cache] Cached live status for ${liveStatusMap.size} channels (1 hour TTL)`)
   }
 
   /**
