@@ -277,28 +277,6 @@ app.get('/streams/random-multiple', async (c) => {
   }
 })
 
-// IDで配信者を取得
-app.get('/streamers/:id', async (c) => {
-  try {
-    const id = parseInt(c.req.param('id'))
-
-    if (isNaN(id)) {
-      return c.json({ error: 'Invalid ID' }, 400)
-    }
-
-    const streamer = await getStreamerById(id)
-
-    if (!streamer) {
-      return c.json({ error: 'Streamer not found' }, 404)
-    }
-
-    return c.json(streamer)
-  } catch (error) {
-    console.error('Error fetching streamer:', error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
-})
-
 // ライブ配信状態を取得
 app.get('/streamers/live-status', async (c) => {
   try {
@@ -345,6 +323,28 @@ app.get('/streamers/live-status', async (c) => {
     return c.json({ liveStatus })
   } catch (error) {
     console.error('Error fetching live status:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// IDで配信者を取得
+app.get('/streamers/:id', async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'))
+
+    if (isNaN(id)) {
+      return c.json({ error: 'Invalid ID' }, 400)
+    }
+
+    const streamer = await getStreamerById(id)
+
+    if (!streamer) {
+      return c.json({ error: 'Streamer not found' }, 404)
+    }
+
+    return c.json(streamer)
+  } catch (error) {
+    console.error('Error fetching streamer:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })
