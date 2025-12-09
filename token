@@ -21,7 +21,7 @@ curl -X GET "https://api.twitch.tv/helix/streams?user_id=$USER_ID" \
 -H "Authorization: Bearer $ACCESS_TOKEN"
 
 API_KEY=AIzaSyBP-l2liHEs-4ys6zDUSMjmJxkHv5_VRSU
-CHANNEL_HANDLE="uruhaichinose" # @なしで指定
+CHANNEL_HANDLE="KonkonAria" # @なしで指定
 # 検索クエリに "@uruhaichinose" を設定
 curl -X GET "https://www.googleapis.com/youtube/v3/search?part=id&q=@$CHANNEL_HANDLE&type=channel&maxResults=1&key=$API_KEY"
 
