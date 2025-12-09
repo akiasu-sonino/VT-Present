@@ -16,7 +16,7 @@ export default defineConfig(async ({ mode }) => {
             devServer.default({
                 entry: 'src/index.ts',
                 exclude: [
-                    /^(?!\/api\/).*$/,  // /api/以外のすべてを除外
+                    /^(?!\/api\/|\/terms|\/privacy).*$/,  // /api/, /terms, /privacy以外を除外
                 ],
                 injectClientScript: false
             })

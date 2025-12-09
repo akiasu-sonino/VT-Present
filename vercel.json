@@ -10,6 +10,14 @@
             "dest": "/api/index"
         },
         {
+            "src": "/terms",
+            "dest": "/api/index"
+        },
+        {
+            "src": "/privacy",
+            "dest": "/api/index"
+        },
+        {
             "handle": "filesystem"
         },
         {

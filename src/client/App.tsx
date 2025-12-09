@@ -514,11 +514,11 @@ function App() {
         <div className="footer-content">
           <p className="footer-copyright">&copy; 2025 OshiStream. All rights reserved.</p>
           <div className="footer-links">
-            <a href="/terms" target="_blank" rel="noopener noreferrer" className="footer-link">
+            <a href="/terms" className="footer-link">
               利用規約
             </a>
             <span className="footer-separator">|</span>
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="footer-link">
+            <a href="/privacy" className="footer-link">
               プライバシーポリシー
             </a>
           </div>
