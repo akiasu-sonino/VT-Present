@@ -1,3 +1,4 @@
+import { MouseEvent } from 'react'
 import '../styles/StreamerCard.css'
 
 interface Streamer {
@@ -31,12 +32,12 @@ interface StreamerCardProps {
 }
 
 function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, showRemoveButton = false }: StreamerCardProps) {
-  const handleAction = (e: React.MouseEvent, action: 'LIKE' | 'SOSO' | 'DISLIKE') => {
+  const handleAction = (e: MouseEvent, action: 'LIKE' | 'SOSO' | 'DISLIKE') => {
     e.stopPropagation()
     onAction?.(streamer.id, action)
   }
 
-  const handleRemove = (e: React.MouseEvent) => {
+  const handleRemove = (e: MouseEvent) => {
     e.stopPropagation()
     onRemove?.(streamer.id)
   }
@@ -78,7 +79,7 @@ function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, showRem
 
         <div className="follower-count">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-5 6a5 5 0 0110 0H3z" fill="currentColor"/>
+            <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-5 6a5 5 0 0110 0H3z" fill="currentColor" />
           </svg>
           <span>{streamer.follower_count.toLocaleString()} フォロワー</span>
         </div>

@@ -5,6 +5,8 @@ import TagFilter from './components/TagFilter'
 import UserMenu from './components/UserMenu'
 import { AdBanner } from './components/AdBanner'
 import './styles/App.css'
+import { AdBannerAmazon } from './components/AdBannerAmazon'
+import { HorizontalLayout } from './components/HorizontalLayout'
 
 interface Streamer {
   id: number
@@ -316,7 +318,31 @@ function App() {
 
       {/* 広告バナー - ヘッダー下 */}
       <AdBanner />
-
+      <div>
+        <div className="recommended-devices-title">おすすめデバイス</div>
+        <HorizontalLayout
+          items={[
+            {
+              content: <AdBannerAmazon url="https://amzn.to/48r6qld" imageSrc="https://m.media-amazon.com/images/I/61Sy-86P2FL._AC_SL1500_.jpg" alt="おすすめの入門用キーボード。キー入力がなめらか。" />,
+              width: '20%' // col-5相当 (5/12)
+            },
+            {
+              content: <AdBannerAmazon url="https://amzn.to/3MqZUCv" imageSrc="https://m.media-amazon.com/images/I/51PesoBHTQL._AC_SL1500_.jpg" alt="おすすめの入門用マウス。無線で軽くて使いやすい。" />,
+              width: '20%' // col-4相当 (4/12)
+            },
+            {
+              content: <AdBannerAmazon url="https://amzn.to/44imOlH" imageSrc="https://m.media-amazon.com/images/I/61kTEwDIwbL._AC_SL1500_.jpg" alt="おすすめの入門用マイク。通話相手に聞こえやすい。" />,
+              width: '20%' // col-4相当 (4/12)
+            },
+            {
+              content: <AdBannerAmazon url="https://amzn.to/4rIMt0H" imageSrc="https://m.media-amazon.com/images/I/51XQa8rzYYL._AC_SL1000_.jpg" alt="おすすめの入門用スピーカー。耳がイヤホンで疲れたときに。" />,
+              width: '20%' // col-4相当 (4/12)
+            },
+          ]}
+          containerClassName="mt-4"
+          gap="1rem"
+        />
+      </div>
       <main className="main">
         {activeTab === 'discover' && (
           <>

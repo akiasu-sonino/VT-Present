@@ -46,6 +46,10 @@ export function AdBanner({
   // AdSense が設定されていない場合はプレースホルダーを表示
   if (!adClient || !adSlot) {
     return (
+      <></>
+    );
+  }
+  /*
       <div className="ad-banner-container">
         <div className="ad-banner-placeholder">
           <div className="ad-banner-placeholder-content">
@@ -59,8 +63,7 @@ export function AdBanner({
           </div>
         </div>
       </div>
-    );
-  }
+  */
 
   return (
     <div className="ad-banner-container">
