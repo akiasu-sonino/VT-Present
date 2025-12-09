@@ -75,6 +75,20 @@ CREATE TABLE contact_messages (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- 監査ログテーブル（荒らし対策のためのユーザー行動記録）
+CREATE TABLE audit_logs (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action VARCHAR(100) NOT NULL,  -- 'comment_posted', 'tag_added', 'tag_removed'
+  resource_type VARCHAR(50),     -- 'comment', 'tag', 'streamer'
+  resource_id INTEGER,           -- 対象リソースのID
+  streamer_id INTEGER REFERENCES streamers(id) ON DELETE SET NULL,  -- 対象配信者
+  details JSONB,                 -- 追加情報（コメント内容、タグ名など）
+  ip_address INET,               -- IPアドレス（オプション）
+  user_agent TEXT,               -- ブラウザ情報（オプション）
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- インデックス作成（検索高速化）
 CREATE INDEX idx_preferences_user ON preferences(anonymous_user_id);
 CREATE INDEX idx_preferences_streamer ON preferences(streamer_id);
@@ -85,3 +99,7 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_comments_streamer ON comments(streamer_id);
 CREATE INDEX idx_comments_user ON comments(user_id);
 CREATE INDEX idx_contact_messages_user ON contact_messages(user_id);
+CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX idx_audit_logs_streamer ON audit_logs(streamer_id);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);

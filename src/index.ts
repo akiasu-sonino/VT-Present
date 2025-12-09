@@ -7,6 +7,7 @@ import { cache } from './lib/cache.js'
 import { writeCache } from './lib/write-cache.js'
 import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessionCookie, getSessionUserId, clearSession, isDevelopment, createMockUser } from './lib/oauth.js'
 import { getLiveStreamStatus } from './lib/youtube.js'
+import { createAuditLog } from './lib/audit-log.js'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -544,6 +545,22 @@ app.post('/comments', async (c) => {
     // キャッシュに追加（定期的にDBに書き込まれる）
     writeCache.addComment(streamerId, userId, content.trim())
 
+    // 監査ログを記録（荒らし対策）
+    const ipAddress = c.req.header('x-forwarded-for') || c.req.header('x-real-ip')
+    const userAgent = c.req.header('user-agent')
+    await createAuditLog({
+      userId,
+      action: 'comment_posted',
+      resourceType: 'comment',
+      streamerId,
+      details: {
+        contentLength: content.trim().length,
+        contentPreview: content.trim().substring(0, 100)
+      },
+      ipAddress,
+      userAgent
+    })
+
     return c.json({
       success: true,
       message: 'Comment will be posted shortly'
@@ -631,6 +648,22 @@ app.post('/streamers/:id/tags', async (c) => {
       return c.json({ error: 'Streamer not found' }, 404)
     }
 
+    // 監査ログを記録（荒らし対策）
+    const ipAddress = c.req.header('x-forwarded-for') || c.req.header('x-real-ip')
+    const userAgent = c.req.header('user-agent')
+    await createAuditLog({
+      userId,
+      action: 'tag_added',
+      resourceType: 'tag',
+      streamerId,
+      details: {
+        tag: tag.trim(),
+        streamerName: updatedStreamer.name
+      },
+      ipAddress,
+      userAgent
+    })
+
     return c.json({
       success: true,
       streamer: updatedStreamer
@@ -666,6 +699,22 @@ app.delete('/streamers/:id/tags/:tag', async (c) => {
     if (!updatedStreamer) {
       return c.json({ error: 'Streamer not found' }, 404)
     }
+
+    // 監査ログを記録（荒らし対策）
+    const ipAddress = c.req.header('x-forwarded-for') || c.req.header('x-real-ip')
+    const userAgent = c.req.header('user-agent')
+    await createAuditLog({
+      userId,
+      action: 'tag_removed',
+      resourceType: 'tag',
+      streamerId,
+      details: {
+        tag,
+        streamerName: updatedStreamer.name
+      },
+      ipAddress,
+      userAgent
+    })
 
     return c.json({
       success: true,
