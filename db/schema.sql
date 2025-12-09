@@ -2,6 +2,9 @@
 -- このファイルはVercel Postgresで実行してテーブルを作成します
 
 -- 既存のテーブルと型を削除（再セットアップ用）
+DROP TABLE IF EXISTS audit_logs CASCADE;
+DROP TABLE IF EXISTS contact_messages CASCADE;
+DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS preferences CASCADE;
 DROP TABLE IF EXISTS anonymous_users CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
