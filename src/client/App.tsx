@@ -318,6 +318,7 @@ function App() {
 
       {/* 広告バナー - ヘッダー下 */}
       <AdBanner />
+      {/*
       <div>
         <div className="recommended-devices-title">おすすめデバイス</div>
         <HorizontalLayout
@@ -343,6 +344,7 @@ function App() {
           gap="1rem"
         />
       </div>
+      */}
       <main className="main">
         {activeTab === 'discover' && (
           <>
