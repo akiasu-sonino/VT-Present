@@ -31,7 +31,7 @@ export function AdBannerAmazon({
 }: AdBannerAmazonProps) {
   return (
     <div
-      className="ad-banner-container"
+      className="Recommend-container"
       style={{
         display: 'flex',
         flexDirection: 'column',
