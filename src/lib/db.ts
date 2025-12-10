@@ -148,7 +148,7 @@ export async function getOrCreateAnonymousUser(anonymousId: string): Promise<Ano
 
 /**
  * 好みを記録
- * 記録後、ユーザーアクションキャッシュを更新
+ * 記録後、ユーザーアクションキャッシュとプリファレンスキャッシュを更新
  */
 export async function recordPreference(
   anonymousUserId: number,
@@ -164,12 +164,15 @@ export async function recordPreference(
   // キャッシュを更新（次回のgetActionedStreamerIdsでDBアクセス不要に）
   cache.addUserAction(anonymousUserId, streamerId)
 
+  // プリファレンスキャッシュを無効化（協調フィルタリング用）
+  cache.invalidateUserPreferences(anonymousUserId)
+
   return result.rows[0]
 }
 
 /**
  * 配信者の好み設定を削除
- * 削除後、ユーザーアクションキャッシュを更新
+ * 削除後、ユーザーアクションキャッシュとプリファレンスキャッシュを更新
  */
 export async function deletePreference(
   anonymousUserId: number,
@@ -183,6 +186,9 @@ export async function deletePreference(
 
   // キャッシュから削除
   cache.removeUserAction(anonymousUserId, streamerId)
+
+  // プリファレンスキャッシュを無効化（協調フィルタリング用）
+  cache.invalidateUserPreferences(anonymousUserId)
 }
 
 /**
@@ -351,4 +357,49 @@ export async function removeTagFromStreamer(streamerId: number, tag: string): Pr
   cache.invalidate()
 
   return result.rows[0]
+}
+
+/**
+ * ユーザーのアクション履歴をスコア付きMapで取得
+ * 協調フィルタリングで使用
+ * @param userId 匿名ユーザーID
+ * @returns Map<streamerId, score> (LIKE: 1.0, SOSO: 0.3, DISLIKE: -0.5)
+ */
+export async function getUserPreferences(userId: number): Promise<Map<number, number>> {
+  const result = await sql<{ streamer_id: number; score: number }>`
+    SELECT
+      streamer_id,
+      CASE
+        WHEN action = 'LIKE' THEN 1.0
+        WHEN action = 'SOSO' THEN 0.3
+        WHEN action = 'DISLIKE' THEN -0.5
+        ELSE 0.0
+      END as score
+    FROM preferences
+    WHERE anonymous_user_id = ${userId}
+  `
+
+  const prefs = new Map<number, number>()
+  for (const row of result.rows) {
+    prefs.set(row.streamer_id, row.score)
+  }
+
+  return prefs
+}
+
+/**
+ * アクション数がN件以上のアクティブユーザーIDリストを取得
+ * 協調フィルタリングの対象ユーザー抽出に使用
+ * @param minActions 最小アクション数（デフォルト: 5）
+ * @returns アクティブユーザーIDの配列
+ */
+export async function getActiveUserIds(minActions: number = 5): Promise<number[]> {
+  const result = await sql<{ anonymous_user_id: number }>`
+    SELECT anonymous_user_id
+    FROM preferences
+    GROUP BY anonymous_user_id
+    HAVING COUNT(*) >= ${minActions}
+  `
+
+  return result.rows.map(row => row.anonymous_user_id)
 }

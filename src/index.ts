@@ -279,6 +279,7 @@ app.get('/streams/random', async (c) => {
 })
 
 // ランダムに複数の配信者を取得（重複なし）
+// 協調フィルタリングにも対応（algorithm=collaborative）
 app.get('/streams/random-multiple', async (c) => {
   try {
     // 匿名ユーザーを取得
@@ -296,15 +297,67 @@ app.get('/streams/random-multiple', async (c) => {
     const tagsParam = c.req.query('tags')
     const tags = tagsParam ? tagsParam.split(',').map(t => t.trim()).filter(t => t.length > 0) : []
 
+    // アルゴリズム選択（random / collaborative）
+    const algorithm = c.req.query('algorithm') || 'random'
+
+    // ランダム混入比率（デフォルト: 0.3）
+    const randomRatio = parseFloat(c.req.query('randomRatio') || '0.3')
+
+    // デバッグモード
+    const debug = c.req.query('debug') === 'true'
+
     // アクション済み配信者IDを取得
     const excludeIds = await getActionedStreamerIds(user.id)
 
-    // 除外IDとタグを考慮してランダム配信者を複数取得
-    const streamers = await getRandomStreamers(count, excludeIds, tags)
+    let result: any
 
-    return c.json({ streamers, count: streamers.length, filters: { tags } })
+    if (algorithm === 'collaborative') {
+      // 協調フィルタリング
+      const { getCollaborativeRecommendations, getCollaborativeRecommendationsWithDebug } = await import('./lib/collaborative-filtering.js')
+
+      if (debug) {
+        // デバッグ情報付き
+        result = await getCollaborativeRecommendationsWithDebug(
+          user.id,
+          excludeIds,
+          tags,
+          count,
+          randomRatio
+        )
+        return c.json({
+          ...result,
+          count: result.streamers.length,
+          filters: { tags },
+          algorithm: 'collaborative'
+        })
+      } else {
+        // 通常モード
+        const streamers = await getCollaborativeRecommendations(
+          user.id,
+          excludeIds,
+          tags,
+          count,
+          randomRatio
+        )
+        return c.json({
+          streamers,
+          count: streamers.length,
+          filters: { tags },
+          algorithm: 'collaborative'
+        })
+      }
+    } else {
+      // 既存のランダムロジック
+      const streamers = await getRandomStreamers(count, excludeIds, tags)
+      return c.json({
+        streamers,
+        count: streamers.length,
+        filters: { tags },
+        algorithm: 'random'
+      })
+    }
   } catch (error) {
-    console.error('Error fetching random streamers:', error)
+    console.error('Error fetching streamers:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })

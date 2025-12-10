@@ -4,11 +4,14 @@
  * - ストリーマーデータ：1時間キャッシュ
  * - ユーザーアクション：1時間キャッシュ
  * - ユーザー情報：1時間キャッシュ
+ * - ユーザープリファレンス（スコア付き）：1時間キャッシュ
+ * - ユーザー類似度：1時間キャッシュ
  */
 
 import { sql } from '@vercel/postgres'
 import type { Streamer, AnonymousUser, PreferenceAction } from './db.js'
 import type { LiveStreamInfo } from './youtube.js'
+import { getUserPreferences as getUserPreferencesFromDB } from './db.js'
 
 interface CacheEntry<T> {
   data: T
@@ -24,6 +27,8 @@ class DataCache {
   private userActionsCache: Map<number, CacheEntry<number[]>> = new Map()
   private usersCache: Map<string, CacheEntry<AnonymousUser>> = new Map()
   private liveStatusCache: CacheEntry<Map<string, LiveStreamInfo>> | null = null
+  private userPreferencesCache: Map<number, CacheEntry<Map<number, number>>> = new Map()
+  private userSimilarityCache: Map<string, CacheEntry<number>> = new Map()
 
   private readonly TTL = 60 * 60 * 1000 // 1時間（ミリ秒）
   private readonly LIVE_STATUS_TTL = 12 * 60 * 60 * 1000 // 12時間（ミリ秒） - YouTube APIクォータ大幅節約
@@ -287,6 +292,85 @@ class DataCache {
   }
 
   /**
+   * ユーザープリファレンス（スコア付き）をキャッシュから取得
+   * 協調フィルタリングで使用
+   * @param userId 匿名ユーザーID
+   * @returns Map<streamerId, score>
+   */
+  async getUserPreferences(userId: number): Promise<Map<number, number>> {
+    const cached = this.userPreferencesCache.get(userId)
+
+    if (cached && cached.expiresAt > Date.now()) {
+      console.log(`[Cache] Using cached user preferences for user ${userId}`)
+      return cached.data
+    }
+
+    // DBから取得
+    console.log(`[Cache] Fetching user preferences from DB for user ${userId}`)
+    const prefs = await getUserPreferencesFromDB(userId)
+
+    // キャッシュに保存
+    this.userPreferencesCache.set(userId, {
+      data: prefs,
+      expiresAt: Date.now() + this.TTL
+    })
+
+    console.log(`[Cache] Cached ${prefs.size} preferences for user ${userId}`)
+    return prefs
+  }
+
+  /**
+   * ユーザー類似度をキャッシュから取得
+   * @param userId1 ユーザーID1
+   * @param userId2 ユーザーID2
+   * @returns 類似度スコア（キャッシュにない場合はnull）
+   */
+  getUserSimilarity(userId1: number, userId2: number): number | null {
+    // キーを正規化（小さい方を先に）
+    const key = userId1 < userId2 ? `${userId1}-${userId2}` : `${userId2}-${userId1}`
+    const cached = this.userSimilarityCache.get(key)
+
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data
+    }
+
+    return null
+  }
+
+  /**
+   * ユーザー類似度をキャッシュに保存
+   * @param userId1 ユーザーID1
+   * @param userId2 ユーザーID2
+   * @param similarity 類似度スコア
+   */
+  setUserSimilarity(userId1: number, userId2: number, similarity: number): void {
+    // キーを正規化（小さい方を先に）
+    const key = userId1 < userId2 ? `${userId1}-${userId2}` : `${userId2}-${userId1}`
+    this.userSimilarityCache.set(key, {
+      data: similarity,
+      expiresAt: Date.now() + this.TTL
+    })
+  }
+
+  /**
+   * 特定ユーザーのプリファレンスキャッシュを無効化
+   * recordPreference/deletePreference時に呼び出す
+   * @param userId 匿名ユーザーID
+   */
+  invalidateUserPreferences(userId: number): void {
+    console.log(`[Cache] Invalidating user preferences cache for user ${userId}`)
+    this.userPreferencesCache.delete(userId)
+    // 類似度キャッシュも無効化（このユーザーを含むすべての類似度）
+    const keysToDelete: string[] = []
+    for (const key of this.userSimilarityCache.keys()) {
+      if (key.startsWith(`${userId}-`) || key.endsWith(`-${userId}`)) {
+        keysToDelete.push(key)
+      }
+    }
+    keysToDelete.forEach(key => this.userSimilarityCache.delete(key))
+  }
+
+  /**
    * キャッシュの統計情報を取得（デバッグ用）
    */
   getStats(): {
@@ -294,6 +378,8 @@ class DataCache {
     userActions: { count: number }
     users: { count: number }
     liveStatus: { cached: boolean; count: number; ttl: number }
+    userPreferences: { count: number }
+    userSimilarity: { count: number }
   } {
     return {
       streamers: {
@@ -311,6 +397,12 @@ class DataCache {
         cached: !!this.liveStatusCache,
         count: this.liveStatusCache?.data.size || 0,
         ttl: this.liveStatusCache ? Math.max(0, this.liveStatusCache.expiresAt - Date.now()) : 0
+      },
+      userPreferences: {
+        count: this.userPreferencesCache.size
+      },
+      userSimilarity: {
+        count: this.userSimilarityCache.size
       }
     }
   }
