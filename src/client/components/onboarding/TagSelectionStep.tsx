@@ -32,7 +32,7 @@ function TagSelectionStep({ recommendedTags, onComplete, onSkip, onBack }: TagSe
       </p>
 
       <div className="recommended-tags">
-        {recommendedTags.map((tag) => (
+        {(recommendedTags || []).map((tag) => (
           <button
             key={tag}
             className={`tag-option ${selectedTags.includes(tag) ? 'selected' : ''}`}

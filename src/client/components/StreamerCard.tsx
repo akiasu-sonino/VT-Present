@@ -70,7 +70,7 @@ function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, showRem
         <p className="streamer-description">{streamer.description}</p>
 
         <div className="tags">
-          {streamer.tags.map((tag, index) => (
+          {(streamer.tags || []).map((tag, index) => (
             <span key={index} className="tag">
               #{tag}
             </span>

@@ -3,7 +3,7 @@
 # =================================================================
 # 設定（本番では環境変数に置くのを推奨）
 # =================================================================
-YOUTUBE_API_KEY="AIzaSyBP-l2liHEs-4ys6zDUSMjmJxkHv5_VRSU"
+YOUTUBE_API_KEY="AIzaSyAH5q0fG0JFkalyRWHT5gJDVkW27jUCLRM"
 GEMINI_API_KEY="AIzaSyAqC4ADw7-XFvWu3V8kwRe91iTYzej2RQA"
 DB_CONN_STRING="postgresql://neondb_owner:npg_57hzmRBLTlcD@ep-shy-cloud-a1d938v2-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 
@@ -162,10 +162,13 @@ insert_youtube_streamer() {
         description_sql="'${escaped_desc}'"
     fi
 
-    if [ -z "$ai_tags_json" ]; then
-        tags_sql="'[]'"
+    # JSON配列 → PostgreSQL text[] の形式に変換
+    if [ -z "$ai_tags_json" ] || [ "$ai_tags_json" = "[]" ]; then
+        tags_sql="'{}'"
     else
-        tags_sql="'${ai_tags_json}'"
+        pg_array=$(echo "$ai_tags_json" | jq -r 'map(gsub("\""; "\\\"")) | "{" + (join("\",\"") | "\""+.+"\"") + "}"')
+        pg_array_escaped=$(echo "$pg_array" | sed "s/'/''/g")
+        tags_sql="'${pg_array_escaped}'"
     fi
 
     # =================================================================

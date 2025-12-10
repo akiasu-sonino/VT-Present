@@ -1,9 +1,11 @@
 import os, sys, json, textwrap, re
-import google.generativeai as genai
+import time
+from openai import OpenAI
 
 DEBUG = os.environ.get("DEBUG_GEMINI_GEN") == "1"
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+# OpenAIクライアント
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 
 def log_debug(msg: str):
@@ -33,22 +35,26 @@ def build_prompt(payload: dict) -> str:
 def generate(payload: dict):
     prompt = build_prompt(payload)
     log_debug(f"prompt:\n{prompt}")
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    res = model.generate_content(prompt)
 
-    # 生成結果全体をデバッグ出力
+    # ---- OpenAI API呼び出し ----
     try:
-        log_debug(f"raw response: {res}")
-        text = (res.text or "").strip()
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # 無料で使える軽量モデル、必要なら変更可
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        raw_text = response.choices[0].message.content.strip()
+        log_debug(f"raw response:\n{raw_text}")
     except Exception as e:
-        log_debug(f"failed to read response text: {e}")
-        text = ""
+        log_debug(f"OpenAI API error: {e}")
+        return {"description": "", "tags": []}
 
-    log_debug(f"response text:\n{text}")
+    text = raw_text
 
-    # ```json ... ``` で囲まれている場合は中身だけを抜き出す
+    # ```json ... ``` の囲いを除去
     if text.startswith("```"):
-        # 正規表現の \s はそのまま。ダブルバックスラッシュだと文字列 "\s" にマッチしない。
         fenced = re.findall(r"```(?:json)?\s*(.*?)```", text, flags=re.S)
         if fenced:
             text = fenced[0].strip()
@@ -56,7 +62,7 @@ def generate(payload: dict):
 
     log_debug(f"抜き出し後のJSON:\n{text}")
 
-    # 念のためJSONパース。失敗したらフォールバック。
+    # JSONをパース
     try:
         data = json.loads(text)
         desc = str(data.get("description", "")).strip().replace("\n", " ")
@@ -65,11 +71,13 @@ def generate(payload: dict):
         log_debug(f"json parse error: {e}")
         desc = ""
         tags = []
+
     return {"description": desc, "tags": tags}
 
 
 if __name__ == "__main__":
-    # stdinからpayload(JSON)を受け取る
+    # stdin から payload(JSON) を受け取る
     payload = json.load(sys.stdin)
+    time.sleep(2)  # 必要ならウェイト。Geminiほど厳しくないので短くした
     result = generate(payload)
     json.dump(result, sys.stdout, ensure_ascii=False)

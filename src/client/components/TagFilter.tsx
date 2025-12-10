@@ -104,7 +104,7 @@ function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
             </div>
           )}
           <div className="tag-list">
-            {allTags.map(tag => (
+            {(allTags || []).map(tag => (
               <button
                 key={tag}
                 className={`tag-button ${selectedTags.includes(tag) ? 'selected' : ''}`}

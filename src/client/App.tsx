@@ -518,7 +518,7 @@ function App() {
             <div className="modal-tags-section">
               <h3>タグ</h3>
               <div className="tags">
-                {selectedStreamer.tags.map((tag, index) => (
+                {(selectedStreamer.tags || []).map((tag, index) => (
                   <span key={index} className="tag modal-tag">
                     #{tag}
                     {currentUser && (

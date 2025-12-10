@@ -1,0 +1,146 @@
+INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
+('APEX', 'APEX', 'keep'),
+('あぺっくす', 'APEX', 'keep'),
+
+('FPS', 'FPS', 'keep'),
+
+('LeagueofLegends', 'LoL', 'keep'),
+('LoL', 'LoL', 'keep'),
+('MIDレーナー', 'LoL', 'keep'),
+('MIDレーン', 'LoL', 'keep'),
+
+('Minecraft', 'Minecraft', 'keep'),
+('マインクラフト', 'Minecraft', 'keep'),
+
+('ホラーゲーム', 'ホラーゲーム', 'keep'),
+('パズル', 'パズル', 'keep'),
+('パワプロ', 'パワプロ', 'keep'),
+('ポケモン', 'ポケモン', 'keep'),
+('麻雀', '麻雀', 'keep');
+
+
+INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
+('VTuber', 'VTuber', 'keep'),
+('Vtuber', 'VTuber', 'keep'),
+('ぶいちゅーばー', 'VTuber', 'keep'),
+('バーチャル', 'VTuber', 'keep'),
+('バーチャル猫', 'VTuber', 'keep'),
+('バーチャルカフェ', 'VTuber', 'keep'),
+
+('にじさんじ', 'にじさんじ', 'keep'),
+('ぶいすぽ', 'ぶいすぽ', 'keep'),
+('ZETADIVISION', 'ZETADIVISION', 'keep'),
+
+('個人勢', '個人勢', 'keep');
+
+INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
+('Song', '音楽', 'keep'),
+('Music', '音楽', 'keep'),
+('AnimeSong', '音楽', 'keep'),
+('Vocaloid', '音楽', 'keep'),
+('ボカロ', '音楽', 'keep'),
+('アニソン', '音楽', 'keep'),
+('歌', '音楽', 'keep'),
+('歌枠', '音楽', 'keep'),
+('歌配信', '音楽', 'keep'),
+('おんがく', '音楽', 'keep'),
+('音楽', '音楽', 'keep');
+
+INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
+('Talk', '雑談', 'keep'),
+('ざつだん', '雑談', 'keep'),
+('おしゃべり', '雑談', 'keep'),
+('雑談', '雑談', 'keep'),
+('お話', '雑談', 'keep'),
+('ウェブラジオ', '雑談', 'keep');
+
+INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
+('Game実況', 'ゲーム実況', 'keep'),
+('ゲーム実況', 'ゲーム実況', 'keep'),
+('じっきょう', 'ゲーム実況', 'keep'),
+('実況', 'ゲーム実況', 'keep'),
+('ゲーム配信', 'ゲーム実況', 'keep');
+
+INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
+('ASMR', 'ASMR', 'keep'),
+('いやし', 'ASMR', 'keep'),
+('癒し', 'ASMR', 'keep'),
+('リラックス', 'ASMR', 'keep'),
+('安らぎ', 'ASMR', 'keep'),
+('すいみん', 'ASMR', 'keep'),
+('男性向けシチボ', 'ASMR', 'keep');
+
+INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
+('Streamer', '配信者', 'keep'),
+('ストリーマー', '配信者', 'keep'),
+('ストリーミング', '配信者', 'keep'),
+('配信者', '配信者', 'keep');
+
+INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
+('Collaboration', 'コラボ配信', 'keep'),
+('コラボ', 'コラボ配信', 'keep');
+
+INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
+('イラスト', 'イラスト', 'keep'),
+('お絵かき', 'イラスト', 'keep'),
+('お絵描き', 'イラスト', 'keep'),
+('アート', 'イラスト', 'keep'),
+('ファンアート', 'イラスト', 'keep'),
+('ふぁんあーと', 'イラスト', 'keep');
+
+INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
+('可愛い', '可愛い', 'keep'),
+('かわいい', '可愛い', 'keep'),
+('元気', '元気', 'keep'),
+('冒険', NULL, 'remove'),
+('企画', '企画', 'keep'),
+('成長', NULL, 'remove'),
+('挑戦', NULL, 'remove'),
+('参加型', '参加型', 'keep'),
+
+('天狐', NULL, 'remove'),
+('猫', NULL, 'remove'),
+('ねこ', NULL, 'remove'),
+('ねこみみ', NULL, 'remove'),
+('狼', NULL, 'remove'),
+('宇宙', NULL, 'remove'),
+
+('高品質', '高品質', 'keep'),
+('高音質', '高音質', 'keep'),
+
+('メンバーシップ', NULL, 'remove'),
+
+('ライブ配信', '配信', 'keep'),
+('生配信', '配信', 'keep'),
+('配信', '配信', 'keep'),
+('配信切り抜き', '配信', 'keep'),
+('同時配信', '配信', 'keep'),
+('毎日配信', '配信', 'keep'),
+('深夜配信', '配信', 'keep'),
+('不定期', '配信', 'keep');
+
+INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
+('16歳', NULL, 'remove'),
+('高校生', NULL, 'remove'),
+('妹', NULL, 'remove'),
+('女の子', NULL, 'remove'),
+('男子', NULL, 'remove'),
+
+('九尾狐', NULL, 'remove'),
+('天使', NULL, 'remove'),
+('悪魔', NULL, 'remove'),
+('ユキヒョウ', NULL, 'remove'),
+
+('高倉むき', NULL, 'remove'),
+('ココ・ショコラ', NULL, 'remove'),
+('しゅうおうぱとら', NULL, 'remove'),
+
+('ファンネーム', NULL, 'remove'),
+('ファンマーク', NULL, 'remove'),
+('ファンボックス', NULL, 'remove'),
+
+('電話', NULL, 'remove'),
+
+('朝ごはん', NULL, 'remove'),
+('朝枠', NULL, 'remove'),
+('朝配信', NULL, 'remove');
