@@ -403,3 +403,198 @@ export async function getActiveUserIds(minActions: number = 5): Promise<number[]
 
   return result.rows.map(row => row.anonymous_user_id)
 }
+
+// ========================================
+// オンボーディング関連の関数
+// ========================================
+
+export interface OnboardingProgress {
+  id: number
+  anonymous_user_id: number | null
+  user_id: number | null
+  quiz_completed: boolean
+  tags_selected: boolean
+  tutorial_completed: boolean
+  quiz_results: any
+  selected_tags: string[]
+  started_at: Date
+  completed_at: Date | null
+}
+
+/**
+ * オンボーディング進捗を取得
+ * @param anonymousUserId 匿名ユーザーID
+ * @returns オンボーディング進捗、存在しない場合はnull
+ */
+export async function getOnboardingProgress(
+  anonymousUserId: number
+): Promise<OnboardingProgress | null> {
+  const result = await sql<OnboardingProgress>`
+    SELECT * FROM user_onboarding_progress
+    WHERE anonymous_user_id = ${anonymousUserId}
+  `
+
+  return result.rows[0] || null
+}
+
+/**
+ * オンボーディング進捗をユーザーIDで取得
+ * @param userId ユーザーID
+ * @returns オンボーディング進捗、存在しない場合はnull
+ */
+export async function getOnboardingProgressByUserId(
+  userId: number
+): Promise<OnboardingProgress | null> {
+  const result = await sql<OnboardingProgress>`
+    SELECT * FROM user_onboarding_progress
+    WHERE user_id = ${userId}
+  `
+
+  return result.rows[0] || null
+}
+
+/**
+ * 診断結果を保存
+ * @param anonymousUserId 匿名ユーザーID
+ * @param quizResults 診断結果
+ * @param recommendedTags 推奨タグリスト
+ * @returns 更新されたオンボーディング進捗
+ */
+export async function saveQuizResults(
+  anonymousUserId: number,
+  quizResults: any,
+  recommendedTags: string[]
+): Promise<OnboardingProgress> {
+  // 既存の進捗を確認
+  const existing = await getOnboardingProgress(anonymousUserId)
+
+  if (existing) {
+    // 更新
+    const result = await sql<OnboardingProgress>`
+      UPDATE user_onboarding_progress
+      SET quiz_completed = TRUE,
+          quiz_results = ${JSON.stringify({ ...quizResults, recommendedTags })}
+      WHERE anonymous_user_id = ${anonymousUserId}
+      RETURNING *
+    `
+    return result.rows[0]
+  } else {
+    // 新規作成
+    const result = await sql<OnboardingProgress>`
+      INSERT INTO user_onboarding_progress (
+        anonymous_user_id,
+        quiz_completed,
+        quiz_results
+      )
+      VALUES (
+        ${anonymousUserId},
+        TRUE,
+        ${JSON.stringify({ ...quizResults, recommendedTags })}
+      )
+      RETURNING *
+    `
+    return result.rows[0]
+  }
+}
+
+/**
+ * タグ選択を保存
+ * @param anonymousUserId 匿名ユーザーID
+ * @param selectedTags 選択されたタグリスト
+ * @returns 更新されたオンボーディング進捗
+ */
+export async function saveTagSelection(
+  anonymousUserId: number,
+  selectedTags: string[]
+): Promise<OnboardingProgress> {
+  // 既存の進捗を確認
+  const existing = await getOnboardingProgress(anonymousUserId)
+
+  if (existing) {
+    // 更新
+    const result = await sql<OnboardingProgress>`
+      UPDATE user_onboarding_progress
+      SET tags_selected = TRUE,
+          selected_tags = ${selectedTags}
+      WHERE anonymous_user_id = ${anonymousUserId}
+      RETURNING *
+    `
+    return result.rows[0]
+  } else {
+    // 新規作成（診断スキップされた場合）
+    const result = await sql<OnboardingProgress>`
+      INSERT INTO user_onboarding_progress (
+        anonymous_user_id,
+        tags_selected,
+        selected_tags
+      )
+      VALUES (
+        ${anonymousUserId},
+        TRUE,
+        ${selectedTags}
+      )
+      RETURNING *
+    `
+    return result.rows[0]
+  }
+}
+
+/**
+ * チュートリアル完了を記録
+ * @param anonymousUserId 匿名ユーザーID
+ * @returns 更新されたオンボーディング進捗
+ */
+export async function completeOnboarding(
+  anonymousUserId: number
+): Promise<OnboardingProgress> {
+  // 既存の進捗を確認
+  const existing = await getOnboardingProgress(anonymousUserId)
+
+  if (existing) {
+    // 更新
+    const result = await sql<OnboardingProgress>`
+      UPDATE user_onboarding_progress
+      SET tutorial_completed = TRUE,
+          completed_at = NOW()
+      WHERE anonymous_user_id = ${anonymousUserId}
+      RETURNING *
+    `
+    return result.rows[0]
+  } else {
+    // 新規作成（全スキップされた場合）
+    const result = await sql<OnboardingProgress>`
+      INSERT INTO user_onboarding_progress (
+        anonymous_user_id,
+        tutorial_completed,
+        completed_at
+      )
+      VALUES (
+        ${anonymousUserId},
+        TRUE,
+        NOW()
+      )
+      RETURNING *
+    `
+    return result.rows[0]
+  }
+}
+
+/**
+ * 匿名ユーザーから認証済みユーザーへのオンボーディング進捗移行
+ * @param anonymousId 匿名ユーザーのUUID
+ * @param userId 認証済みユーザーID
+ */
+export async function migrateOnboardingProgress(
+  anonymousId: string,
+  userId: number
+): Promise<void> {
+  // 匿名ユーザーのanonymous_user_idを取得
+  const anonymousUser = await getOrCreateAnonymousUser(anonymousId)
+
+  // オンボーディング進捗を移行
+  await sql`
+    UPDATE user_onboarding_progress
+    SET user_id = ${userId}
+    WHERE anonymous_user_id = ${anonymousUser.id}
+  `
+}

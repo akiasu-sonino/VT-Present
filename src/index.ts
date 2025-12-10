@@ -1,13 +1,15 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, migrateOnboardingProgress } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { cache } from './lib/cache.js'
 import { writeCache } from './lib/write-cache.js'
 import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessionCookie, getSessionUserId, clearSession, isDevelopment, createMockUser } from './lib/oauth.js'
 import { getLiveStreamStatus } from './lib/youtube.js'
 import { createAuditLog } from './lib/audit-log.js'
+import { getCollaborativeRecommendations, getCollaborativeRecommendationsWithDebug } from './lib/collaborative-filtering.js'
+import { mapAnswersToTags, determineCurrentStep } from './lib/onboarding.js'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -193,11 +195,22 @@ app.get('/auth/callback/google', async (c) => {
     const anonymousId = getOrCreateAnonymousId(c)
     await linkAnonymousUserToUser(anonymousId, user.id)
 
+    // オンボーディング進捗を移行
+    await migrateOnboardingProgress(anonymousId, user.id)
+
     // セッションを作成
     setSessionCookie(c, user.id)
 
-    // フロントエンドにリダイレクト
-    return c.redirect('/')
+    // オンボーディング状態をチェック
+    const progress = await getOnboardingProgressByUserId(user.id)
+    const needsOnboarding = !progress || !progress.tutorial_completed
+
+    // リダイレクト先を決定
+    if (needsOnboarding) {
+      return c.redirect('/?onboarding=true')
+    } else {
+      return c.redirect('/')
+    }
   } catch (error) {
     console.error('Error in Google OAuth callback:', error)
     return c.json({ error: 'Internal server error' }, 500)
@@ -309,15 +322,11 @@ app.get('/streams/random-multiple', async (c) => {
     // アクション済み配信者IDを取得
     const excludeIds = await getActionedStreamerIds(user.id)
 
-    let result: any
-
     if (algorithm === 'collaborative') {
       // 協調フィルタリング
-      const { getCollaborativeRecommendations, getCollaborativeRecommendationsWithDebug } = await import('./lib/collaborative-filtering.js')
-
       if (debug) {
         // デバッグ情報付き
-        result = await getCollaborativeRecommendationsWithDebug(
+        const result = await getCollaborativeRecommendationsWithDebug(
           user.id,
           excludeIds,
           tags,
@@ -775,6 +784,107 @@ app.delete('/streamers/:id/tags/:tag', async (c) => {
     })
   } catch (error) {
     console.error('Error removing tag:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// ========================================
+// オンボーディング関連エンドポイント
+// ========================================
+
+// オンボーディング状態取得
+app.get('/onboarding/status', async (c) => {
+  try {
+    // 匿名ユーザーを取得
+    const { user } = await getOrCreateCurrentUser(c)
+
+    // オンボーディング進捗を取得
+    const progress = await getOnboardingProgress(user.id)
+
+    return c.json({
+      hasCompletedOnboarding: progress?.tutorial_completed || false,
+      currentStep: determineCurrentStep(progress),
+      progress: progress || null,
+      recommendedTags: progress?.quiz_results?.recommendedTags || []
+    })
+  } catch (error) {
+    console.error('Error fetching onboarding status:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// 診断結果の保存
+app.post('/onboarding/quiz', async (c) => {
+  try {
+    // 匿名ユーザーを取得
+    const { user } = await getOrCreateCurrentUser(c)
+
+    // リクエストボディから回答を取得
+    const body = await c.req.json<{ answers: Array<{ questionId: number; answer: string }> }>()
+    const { answers } = body
+
+    if (!answers || !Array.isArray(answers)) {
+      return c.json({ error: 'answers is required' }, 400)
+    }
+
+    // タグマッピングロジックで推奨タグを計算
+    const recommendedTags = mapAnswersToTags(answers)
+
+    // 診断結果を保存
+    await saveQuizResults(user.id, { answers }, recommendedTags)
+
+    return c.json({
+      recommendedTags,
+      nextStep: 'tags'
+    })
+  } catch (error) {
+    console.error('Error saving quiz results:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// タグ選択の保存
+app.post('/onboarding/tags', async (c) => {
+  try {
+    // 匿名ユーザーを取得
+    const { user } = await getOrCreateCurrentUser(c)
+
+    // リクエストボディから選択タグを取得
+    const body = await c.req.json<{ selectedTags: string[] }>()
+    const { selectedTags } = body
+
+    if (!selectedTags || !Array.isArray(selectedTags)) {
+      return c.json({ error: 'selectedTags is required' }, 400)
+    }
+
+    // タグ選択を保存
+    await saveTagSelection(user.id, selectedTags)
+
+    return c.json({
+      success: true,
+      nextStep: 'tutorial'
+    })
+  } catch (error) {
+    console.error('Error saving tag selection:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// チュートリアル完了
+app.post('/onboarding/tutorial-complete', async (c) => {
+  try {
+    // 匿名ユーザーを取得
+    const { user } = await getOrCreateCurrentUser(c)
+
+    // チュートリアル完了を記録
+    const progress = await completeOnboarding(user.id)
+
+    return c.json({
+      success: true,
+      completedAt: progress.completed_at?.toISOString() || new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('Error completing onboarding:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })

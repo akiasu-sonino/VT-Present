@@ -4,6 +4,8 @@ import PreferencesList from './components/PreferencesList'
 import TagFilter from './components/TagFilter'
 import UserMenu from './components/UserMenu'
 import { AdBanner } from './components/AdBanner'
+import OnboardingWizard from './components/onboarding/OnboardingWizard'
+import LoginPromptModal from './components/onboarding/LoginPromptModal'
 import './styles/App.css'
 import { AdBannerAmazon } from './components/AdBannerAmazon'
 import { HorizontalLayout } from './components/HorizontalLayout'
@@ -62,6 +64,8 @@ function App() {
   const [showLiveOnly, setShowLiveOnly] = useState(false)
   const [newTag, setNewTag] = useState('')
   const [addingTag, setAddingTag] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
   useEffect(() => {
     fetchStreamers()
@@ -69,7 +73,15 @@ function App() {
 
   useEffect(() => {
     fetchCurrentUser()
+    checkOnboarding()
   }, [])
+
+  // currentUserが変更されたらオンボーディングをチェック
+  useEffect(() => {
+    if (currentUser) {
+      checkOnboardingAfterLogin()
+    }
+  }, [currentUser])
 
   useEffect(() => {
     if (selectedStreamer) {
@@ -95,6 +107,91 @@ function App() {
     } catch (err) {
       console.error('Error fetching current user:', err)
     }
+  }
+
+  const checkOnboarding = async () => {
+    // URLパラメータをチェック
+    const urlParams = new URLSearchParams(window.location.search)
+    const shouldShowOnboarding = urlParams.get('onboarding') === 'true'
+
+    if (shouldShowOnboarding) {
+      // オンボーディング状態をチェック
+      try {
+        const response = await fetch('/api/onboarding/status')
+        const data = await response.json()
+
+        if (!data.hasCompletedOnboarding) {
+          setShowOnboarding(true)
+        }
+      } catch (err) {
+        console.error('Error checking onboarding status:', err)
+      }
+    }
+  }
+
+  const checkOnboardingAfterLogin = async () => {
+    // ログイン後のオンボーディングチェック
+    const urlParams = new URLSearchParams(window.location.search)
+    const shouldShowOnboarding = urlParams.get('onboarding') === 'true'
+
+    if (shouldShowOnboarding) {
+      try {
+        const response = await fetch('/api/onboarding/status')
+        const data = await response.json()
+
+        if (!data.hasCompletedOnboarding) {
+          setShowOnboarding(true)
+        }
+      } catch (err) {
+        console.error('Error checking onboarding status:', err)
+      }
+    }
+  }
+
+  const handleOnboardingComplete = (selectedOnboardingTags: string[]) => {
+    setShowOnboarding(false)
+
+    // 選択されたタグをフィルターに適用
+    if (selectedOnboardingTags.length > 0) {
+      setSelectedTags(selectedOnboardingTags)
+    }
+
+    // URLパラメータをクリア
+    window.history.replaceState({}, '', '/')
+
+    // 配信者を再取得
+    fetchStreamers()
+  }
+
+  const handleOnboardingSkip = () => {
+    setShowOnboarding(false)
+    // URLパラメータをクリア
+    window.history.replaceState({}, '', '/')
+  }
+
+  const handleLoginPromptLogin = () => {
+    setShowLoginPrompt(false)
+    // ログインページへリダイレクト
+    const isDevelopment = import.meta.env.DEV
+    if (isDevelopment) {
+      // 開発環境ではモックログイン
+      fetch('/api/auth/mock', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.user) {
+            setCurrentUser(data.user)
+            window.location.reload()
+          }
+        })
+        .catch(err => console.error('Error in mock login:', err))
+    } else {
+      // 本番環境ではGoogle OAuth
+      window.location.href = '/api/auth/google'
+    }
+  }
+
+  const handleLoginPromptContinue = () => {
+    setShowLoginPrompt(false)
   }
 
   const fetchLiveStatus = async () => {
@@ -536,6 +633,24 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* オンボーディングウィザード */}
+      {showOnboarding && (
+        <OnboardingWizard
+          isOpen={showOnboarding}
+          onComplete={handleOnboardingComplete}
+          onSkip={handleOnboardingSkip}
+        />
+      )}
+
+      {/* ログイン促進モーダル（匿名ユーザー向け） */}
+      {showLoginPrompt && (
+        <LoginPromptModal
+          isOpen={showLoginPrompt}
+          onLogin={handleLoginPromptLogin}
+          onContinueAnonymous={handleLoginPromptContinue}
+        />
       )}
 
       <footer className="footer">

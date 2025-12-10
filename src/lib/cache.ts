@@ -11,7 +11,6 @@
 import { sql } from '@vercel/postgres'
 import type { Streamer, AnonymousUser, PreferenceAction } from './db.js'
 import type { LiveStreamInfo } from './youtube.js'
-import { getUserPreferences as getUserPreferencesFromDB } from './db.js'
 
 interface CacheEntry<T> {
   data: T
@@ -305,9 +304,25 @@ class DataCache {
       return cached.data
     }
 
-    // DBから取得
+    // DBから取得（循環インポート回避のため直接SQLクエリ）
     console.log(`[Cache] Fetching user preferences from DB for user ${userId}`)
-    const prefs = await getUserPreferencesFromDB(userId)
+    const result = await sql<{ streamer_id: number; score: number }>`
+      SELECT
+        streamer_id,
+        CASE
+          WHEN action = 'LIKE' THEN 1.0
+          WHEN action = 'SOSO' THEN 0.3
+          WHEN action = 'DISLIKE' THEN -0.5
+          ELSE 0.0
+        END as score
+      FROM preferences
+      WHERE anonymous_user_id = ${userId}
+    `
+
+    const prefs = new Map<number, number>()
+    for (const row of result.rows) {
+      prefs.set(row.streamer_id, row.score)
+    }
 
     // キャッシュに保存
     this.userPreferencesCache.set(userId, {

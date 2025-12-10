@@ -15,6 +15,34 @@ export LANG=C.UTF-8
 INSERT_ROWS=()
 
 # =================================================================
+# 共通: API呼び出し時のHTTPエラーも含めたレスポンス取得
+# =================================================================
+fetch_json_or_error() {
+    local url="$1"
+    local response http_status body
+
+    # curl失敗時もエラーを出す
+    response=$(curl -sS -w "\n%{http_code}" "$url") || {
+        echo "❌ curlエラー: $url"
+        return 1
+    }
+
+    # 最終行にHTTPステータス、それ以外がボディ
+    http_status=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+
+    if [ "$http_status" -ge 400 ]; then
+        echo "❌ HTTPエラー ($http_status) for: $url"
+        echo "---- レスポンス ----"
+        echo "$body"
+        echo "-------------------"
+        return 1
+    fi
+
+    echo "$body"
+}
+
+# =================================================================
 # 個別 YouTuber 1人分の情報を API 取得し、INSERT ROW を組み立てる
 # =================================================================
 insert_youtube_streamer() {
@@ -30,10 +58,14 @@ insert_youtube_streamer() {
 
     echo "▶️ チャンネルID取得中: @$youtube_handle"
 
-    CHANNEL_ID=$(./tools/ChannelId.sh "$youtube_handle")
+    CHANNEL_ID_OUTPUT=$(./tools/ChannelId.sh "$youtube_handle" 2>&1)
+    CHANNEL_ID=$(echo "$CHANNEL_ID_OUTPUT" | tail -n1)
 
     if [ -z "$CHANNEL_ID" ] || [ "$CHANNEL_ID" == "null" ]; then
         echo "❌ チャンネルIDが取得できませんでした: @$youtube_handle"
+        echo "---- 取得スクリプト出力 ----"
+        echo "$CHANNEL_ID_OUTPUT"
+        echo "---------------------------"
         return 1
     fi
 
@@ -41,11 +73,19 @@ insert_youtube_streamer() {
 
     echo "▶️ チャンネル情報取得中..."
 
-    API_RESPONSE=$(curl -s \
-        "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${CHANNEL_ID}&key=${YOUTUBE_API_KEY}")
+    CHANNEL_API_URL="https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${CHANNEL_ID}&key=${YOUTUBE_API_KEY}"
+    API_RESPONSE=$(fetch_json_or_error "$CHANNEL_API_URL") || {
+        echo "❌ チャンネル情報取得APIでエラーが発生しました (@$youtube_handle, channel_id=$CHANNEL_ID)"
+        echo "    URL: $CHANNEL_API_URL"
+        echo "    上記にHTTPエラーやレスポンス本文を表示済みです"
+        return 1
+    }
 
     if [ "$(echo "$API_RESPONSE" | jq '.items | length')" -eq 0 ]; then
         echo "❌ チャンネル情報が見つかりませんでした"
+        echo "---- APIレスポンス ----"
+        echo "$API_RESPONSE"
+        echo "----------------------"
         return 1
     fi
 
@@ -59,13 +99,19 @@ insert_youtube_streamer() {
     # =================================================================
     echo "▶️ 最新動画ID取得中..."
 
-    LATEST_VIDEO_RESPONSE=$(curl -s \
-        "https://www.googleapis.com/youtube/v3/search?key=${YOUTUBE_API_KEY}&channelId=${CHANNEL_ID}&part=snippet&order=date&maxResults=1&type=video")
+    LATEST_VIDEO_RESPONSE=$(fetch_json_or_error \
+        "https://www.googleapis.com/youtube/v3/search?key=${YOUTUBE_API_KEY}&channelId=${CHANNEL_ID}&part=snippet&order=date&maxResults=1&type=video") || {
+        echo "❌ 最新動画取得APIでエラーが発生しました"
+        return 1
+    }
 
     video_id=$(echo "$LATEST_VIDEO_RESPONSE" | jq -r '.items[0].id.videoId // empty')
 
     if [ -z "$video_id" ]; then
         echo "  ⚠️ 最新動画なし"
+        echo "---- APIレスポンス ----"
+        echo "$LATEST_VIDEO_RESPONSE"
+        echo "----------------------"
         video_id=""
     else
         echo "  - 最新動画ID: $video_id"

@@ -106,3 +106,31 @@ CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX idx_audit_logs_streamer ON audit_logs(streamer_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+
+-- オンボーディング進捗管理テーブル（ユーザーの初回訪問時の診断・チュートリアル進捗）
+CREATE TABLE user_onboarding_progress (
+  id SERIAL PRIMARY KEY,
+  anonymous_user_id INTEGER REFERENCES anonymous_users(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+
+  -- オンボーディング完了フラグ
+  quiz_completed BOOLEAN DEFAULT FALSE,
+  tags_selected BOOLEAN DEFAULT FALSE,
+  tutorial_completed BOOLEAN DEFAULT FALSE,
+
+  -- 診断結果（JSONB形式）
+  quiz_results JSONB,  -- { "answers": [...], "recommendedTags": [...] }
+
+  -- 選択されたタグ
+  selected_tags TEXT[],
+
+  -- タイムスタンプ
+  started_at TIMESTAMP DEFAULT NOW(),
+  completed_at TIMESTAMP,
+
+  CONSTRAINT unique_anonymous_user UNIQUE (anonymous_user_id),
+  CONSTRAINT unique_user UNIQUE (user_id)
+);
+
+CREATE INDEX idx_onboarding_anonymous_user ON user_onboarding_progress(anonymous_user_id);
+CREATE INDEX idx_onboarding_user ON user_onboarding_progress(user_id);

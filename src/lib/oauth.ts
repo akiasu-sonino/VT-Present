@@ -77,7 +77,7 @@ export function createMockUser(): GoogleUser {
     id: 'mock-user-123',
     email: 'test@example.com',
     name: 'Test User',
-    picture: 'https://via.placeholder.com/150',
+    picture: 'https://ui-avatars.com/api/?name=Test+User&size=150&background=4F46E5&color=fff',
     verified_email: true
   }
 }
