@@ -4,6 +4,7 @@
 # 設定（本番では環境変数に置くのを推奨）
 # =================================================================
 YOUTUBE_API_KEY="AIzaSyBP-l2liHEs-4ys6zDUSMjmJxkHv5_VRSU"
+GEMINI_API_KEY="AIzaSyAqC4ADw7-XFvWu3V8kwRe91iTYzej2RQA"
 DB_CONN_STRING="postgresql://neondb_owner:npg_57hzmRBLTlcD@ep-shy-cloud-a1d938v2-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 
 export LC_ALL=C.UTF-8
@@ -48,7 +49,6 @@ fetch_json_or_error() {
 insert_youtube_streamer() {
     local youtube_handle="$1"
     local platform="YouTube"
-    local tags_placeholder="{}"
     local channel_url="https://www.youtube.com/@${youtube_handle}"
 
     if [ -z "$youtube_handle" ]; then
@@ -92,6 +92,7 @@ insert_youtube_streamer() {
     # ---- JSON 抽出・安全エスケープ ----
     name="$(echo "$API_RESPONSE" | jq -r '.items[0].snippet.title       | @json' | sed 's/^"//; s/"$//' | sed "s/'/''/g" | sed "s/^/'/; s/$/'/")"
     avatar_url="$(echo "$API_RESPONSE" | jq -r '.items[0].snippet.thumbnails.medium.url | @json' | sed 's/^"//; s/"$//' | sed "s/'/''/g" | sed "s/^/'/; s/$/'/")"
+    channel_description="$(echo "$API_RESPONSE" | jq -r '.items[0].snippet.description // ""')"
     follower_count=$(echo "$API_RESPONSE" | jq -r '.items[0].statistics.subscriberCount // 0')
 
     # =================================================================
@@ -106,6 +107,9 @@ insert_youtube_streamer() {
     }
 
     video_id=$(echo "$LATEST_VIDEO_RESPONSE" | jq -r '.items[0].id.videoId // empty')
+    latest_video_title=""
+    latest_video_desc=""
+    video_tags_json_array="[]"
 
     if [ -z "$video_id" ]; then
         echo "  ⚠️ 最新動画なし"
@@ -115,6 +119,53 @@ insert_youtube_streamer() {
         video_id=""
     else
         echo "  - 最新動画ID: $video_id"
+
+        # 最新動画の詳細取得（タイトル/説明/タグ）
+        VIDEO_DETAIL_RESPONSE=$(fetch_json_or_error \
+            "https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${video_id}&key=${YOUTUBE_API_KEY}") || {
+            echo "⚠️ 最新動画詳細の取得に失敗しました（スキップ）"
+            VIDEO_DETAIL_RESPONSE=""
+        }
+
+        if [ -n "$VIDEO_DETAIL_RESPONSE" ]; then
+            latest_video_title="$(echo "$VIDEO_DETAIL_RESPONSE" | jq -r '.items[0].snippet.title // ""')"
+            latest_video_desc="$(echo "$VIDEO_DETAIL_RESPONSE" | jq -r '.items[0].snippet.description // ""')"
+            video_tags_json_array="$(echo "$VIDEO_DETAIL_RESPONSE" | jq -c '.items[0].snippet.tags // []')"
+        fi
+    fi
+
+    # =================================================================
+    # AI生成: 説明文とタグ
+    # =================================================================
+    payload=$(jq -n \
+        --arg name "$youtube_handle" \
+        --arg channel_desc "$channel_description" \
+        --arg latest_video_title "$latest_video_title" \
+        --arg latest_video_desc "$latest_video_desc" \
+        --argjson video_tags "$video_tags_json_array" \
+        '{name:$name, channel_desc:$channel_desc, latest_video_title:$latest_video_title, latest_video_desc:$latest_video_desc, video_tags:$video_tags}')
+
+    AI_OUTPUT=$(echo "$payload" | GEMINI_API_KEY="$GEMINI_API_KEY" python3 tools/generate_description_tags.py)
+    if [ -n "$AI_OUTPUT" ]; then
+        ai_description=$(echo "$AI_OUTPUT" | jq -r '.description // ""' | tr '\n' ' ')
+        ai_tags_json=$(echo "$AI_OUTPUT" | jq -c '.tags // []')
+    else
+        ai_description=""
+        ai_tags_json="[]"
+    fi
+
+    # SQL用にサニタイズ
+    if [ -z "$ai_description" ]; then
+        description_sql=$name  # 既存の名前(単一引用符済み)を代用
+    else
+        escaped_desc=$(printf "%s" "$ai_description" | sed "s/'/''/g")
+        description_sql="'${escaped_desc}'"
+    fi
+
+    if [ -z "$ai_tags_json" ]; then
+        tags_sql="'[]'"
+    else
+        tags_sql="'${ai_tags_json}'"
     fi
 
     # =================================================================
@@ -124,8 +175,8 @@ insert_youtube_streamer() {
         $name,
         '${platform}',
         $avatar_url,
-        $name,
-        '${tags_placeholder}',
+        ${description_sql},
+        ${tags_sql},
         ${follower_count},
         '${channel_url}',
         '${CHANNEL_ID}',
