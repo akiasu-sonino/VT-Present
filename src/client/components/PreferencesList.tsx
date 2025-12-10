@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import StreamerCard from './StreamerCard'
 import '../styles/PreferencesList.css'
 
@@ -33,19 +33,7 @@ function PreferencesList() {
   const [selectedStreamer, setSelectedStreamer] = useState<Streamer | null>(null)
   const [liveStatus, setLiveStatus] = useState<Record<string, LiveInfo>>({})
 
-  useEffect(() => {
-    fetchPreferences()
-  }, [filter])
-
-  // ライブ状態を定期的に取得（1時間ごと）
-  // RSS + Videos API方式でクォータ大幅削減（200チャンネル×約0.3 units = 60 units/回）
-  useEffect(() => {
-    fetchLiveStatus()
-    const interval = setInterval(fetchLiveStatus, 60 * 60 * 1000) // 1時間
-    return () => clearInterval(interval)
-  }, [])
-
-  const fetchPreferences = async () => {
+  const fetchPreferences = useCallback(async () => {
     try {
       setLoading(true)
       const url = filter === 'all'
@@ -67,7 +55,19 @@ function PreferencesList() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filter])
+
+  useEffect(() => {
+    fetchPreferences()
+  }, [fetchPreferences])
+
+  // ライブ状態を定期的に取得（1時間ごと）
+  // RSS + Videos API方式でクォータ大幅削減（200チャンネル×約0.3 units = 60 units/回）
+  useEffect(() => {
+    fetchLiveStatus()
+    const interval = setInterval(fetchLiveStatus, 60 * 60 * 1000) // 1時間
+    return () => clearInterval(interval)
+  }, [])
 
   const fetchLiveStatus = async () => {
     try {

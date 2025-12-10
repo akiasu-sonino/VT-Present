@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Collaborative Filtering (協調フィルタリング)
  * ユーザーベースの協調フィルタリングでパーソナライズド推薦を実現

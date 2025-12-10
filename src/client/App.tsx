@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import StreamerCard from './components/StreamerCard'
 import PreferencesList from './components/PreferencesList'
 import TagFilter from './components/TagFilter'
@@ -7,8 +7,6 @@ import { AdBanner } from './components/AdBanner'
 import OnboardingWizard from './components/onboarding/OnboardingWizard'
 import LoginPromptModal from './components/onboarding/LoginPromptModal'
 import './styles/App.css'
-import { AdBannerAmazon } from './components/AdBannerAmazon'
-import { HorizontalLayout } from './components/HorizontalLayout'
 
 interface Streamer {
   id: number
@@ -67,9 +65,35 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
+  const fetchStreamers = useCallback(async () => {
+    try {
+      setLoading(true)
+      // 複数の配信者を一度に取得（重複なし）
+      const params = new URLSearchParams({ count: '12' })
+      if (selectedTags.length > 0) {
+        params.append('tags', selectedTags.join(','))
+      }
+
+      const response = await fetch(`/api/streams/random-multiple?${params.toString()}`)
+      const data = await response.json()
+
+      if (response.ok && data.streamers) {
+        setStreamers(data.streamers)
+        setError(null)
+      } else {
+        setError('配信者の取得に失敗しました')
+      }
+    } catch (err) {
+      setError('配信者の取得に失敗しました')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [selectedTags])
+
   useEffect(() => {
     fetchStreamers()
-  }, [selectedTags])
+  }, [fetchStreamers])
 
   useEffect(() => {
     fetchCurrentUser()
@@ -318,32 +342,6 @@ function App() {
     } catch (err) {
       console.error('Error removing tag:', err)
       alert('タグの削除に失敗しました')
-    }
-  }
-
-  const fetchStreamers = async () => {
-    try {
-      setLoading(true)
-      // 複数の配信者を一度に取得（重複なし）
-      const params = new URLSearchParams({ count: '12' })
-      if (selectedTags.length > 0) {
-        params.append('tags', selectedTags.join(','))
-      }
-
-      const response = await fetch(`/api/streams/random-multiple?${params.toString()}`)
-      const data = await response.json()
-
-      if (response.ok && data.streamers) {
-        setStreamers(data.streamers)
-        setError(null)
-      } else {
-        setError('配信者の取得に失敗しました')
-      }
-    } catch (err) {
-      setError('配信者の取得に失敗しました')
-      console.error(err)
-    } finally {
-      setLoading(false)
     }
   }
 

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
@@ -6,7 +7,7 @@ import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { cache } from './lib/cache.js'
 import { writeCache } from './lib/write-cache.js'
 import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessionCookie, getSessionUserId, clearSession, isDevelopment, createMockUser } from './lib/oauth.js'
-import { getLiveStreamStatus } from './lib/youtube.js'
+import { getLiveStreamStatus, type LiveStreamInfo } from './lib/youtube.js'
 import { createAuditLog } from './lib/audit-log.js'
 import { getCollaborativeRecommendations, getCollaborativeRecommendationsWithDebug } from './lib/collaborative-filtering.js'
 import { mapAnswersToTags, determineCurrentStep } from './lib/onboarding.js'
@@ -418,7 +419,7 @@ app.get('/streamers/live-status', async (c) => {
     }
 
     // オブジェクト形式に変換してレスポンス
-    const liveStatus: Record<string, any> = {}
+    const liveStatus: Record<string, LiveStreamInfo> = {}
     if (liveStatusMap) {
       liveStatusMap.forEach((info, channelId) => {
         liveStatus[channelId] = info

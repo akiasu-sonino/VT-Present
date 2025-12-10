@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import '../styles/UserMenu.css'
 
 interface User {
@@ -21,11 +21,7 @@ function UserMenu({ onUserChange }: UserMenuProps) {
   const [contactMessage, setContactMessage] = useState('')
   const [submittingContact, setSubmittingContact] = useState(false)
 
-  useEffect(() => {
-    fetchCurrentUser()
-  }, [])
-
-  const fetchCurrentUser = async () => {
+  const fetchCurrentUser = useCallback(async () => {
     try {
       const response = await fetch('/api/auth/me')
       const data = await response.json()
@@ -44,7 +40,11 @@ function UserMenu({ onUserChange }: UserMenuProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [onUserChange])
+
+  useEffect(() => {
+    fetchCurrentUser()
+  }, [fetchCurrentUser])
 
   const handleMockLogin = async () => {
     try {

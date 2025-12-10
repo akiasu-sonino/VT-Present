@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * データベース接続チェックスクリプト
  * usersテーブルが存在するか確認

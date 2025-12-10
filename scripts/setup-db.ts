@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Database Setup Script
  * Vercel Postgresにスキーマとサンプルデータを投入します

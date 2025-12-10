@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import '../styles/AdBanner.css';
 
+type AdsByGoogleQueue = Array<Record<string, unknown>>;
+
 interface AdBannerProps {
   adClient?: string; // Google AdSense クライアントID (例: "ca-pub-XXXXXXXXXXXXXXXX")
   adSlot?: string;   // 広告スロットID
@@ -36,7 +38,9 @@ export function AdBanner({
     // 広告を表示
     if (adClient && adSlot) {
       try {
-        ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
+        const queue: AdsByGoogleQueue = window.adsbygoogle || [];
+        queue.push({});
+        window.adsbygoogle = queue;
       } catch (e) {
         console.error('AdSense error:', e);
       }
@@ -82,6 +86,6 @@ export function AdBanner({
 // TypeScript用のwindow拡張
 declare global {
   interface Window {
-    adsbygoogle?: any[];
+    adsbygoogle?: AdsByGoogleQueue;
   }
 }

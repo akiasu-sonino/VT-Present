@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Data Cache Layer
  * NeonDBへのアクセスを最小限にするためのキャッシュレイヤー

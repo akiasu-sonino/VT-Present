@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Write Cache Layer
  * コメントとお問い合わせをメモリにバッファリングし、定期的にまとめてDBに書き込む
@@ -28,7 +29,7 @@ interface PendingContactMessage {
 class WriteCache {
   private commentBuffer: PendingComment[] = []
   private contactBuffer: PendingContactMessage[] = []
-  private flushInterval: NodeJS.Timeout | null = null
+  private flushInterval: ReturnType<typeof setInterval> | null = null
   private readonly FLUSH_INTERVAL_MS = 30000 // 30秒ごとに書き込み
 
   constructor() {

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * YouTube Data API v3 ヘルパー
  * RSS Feed + Videos API方式でクォータを大幅削減

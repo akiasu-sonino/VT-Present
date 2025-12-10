@@ -70,7 +70,9 @@ export function mapAnswersToTags(answers: QuizAnswer[]): string[] {
  * @param progress オンボーディング進捗（nullの場合は未開始）
  * @returns 現在のステップ
  */
-export function determineCurrentStep(progress: any | null): 'quiz' | 'tags' | 'tutorial' | 'completed' | null {
+import type { OnboardingProgress } from './db.js'
+
+export function determineCurrentStep(progress: OnboardingProgress | null): 'quiz' | 'tags' | 'tutorial' | 'completed' | null {
   if (!progress) {
     return null  // 未開始
   }

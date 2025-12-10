@@ -415,7 +415,7 @@ export interface OnboardingProgress {
   quiz_completed: boolean
   tags_selected: boolean
   tutorial_completed: boolean
-  quiz_results: any
+  quiz_results: Record<string, unknown> | null
   selected_tags: string[]
   started_at: Date
   completed_at: Date | null
@@ -462,7 +462,7 @@ export async function getOnboardingProgressByUserId(
  */
 export async function saveQuizResults(
   anonymousUserId: number,
-  quizResults: any,
+  quizResults: Record<string, unknown>,
   recommendedTags: string[]
 ): Promise<OnboardingProgress> {
   // 既存の進捗を確認
