@@ -66,6 +66,7 @@ export function AdBannerAmazon({
           <img
             src={imageSrc}
             alt={alt}
+            loading="lazy"
             style={{
               maxWidth: '100%',
               maxHeight: '100%',

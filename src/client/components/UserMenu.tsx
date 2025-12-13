@@ -137,7 +137,7 @@ function UserMenu({ onUserChange }: UserMenuProps) {
       <div className="user-menu">
         <div className="user-info">
           {user.avatar_url ? (
-            <img src={user.avatar_url} alt={user.name || 'User'} className="user-avatar" />
+            <img src={user.avatar_url} alt={user.name || 'User'} className="user-avatar" loading="lazy" />
           ) : (
             <div className="user-avatar-placeholder">
               {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}

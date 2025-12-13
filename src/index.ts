@@ -25,6 +25,8 @@ const mainApp = new Hono()
 mainApp.get('/terms', async (c) => {
   try {
     const html = await readFile(join(__dirname, 'views', 'terms.html'), 'utf-8')
+    // 静的ページは1時間キャッシュ
+    c.header('Cache-Control', 'public, max-age=3600')
     return c.html(html)
   } catch (error) {
     console.error('Error loading terms page:', error)
@@ -35,6 +37,8 @@ mainApp.get('/terms', async (c) => {
 mainApp.get('/privacy', async (c) => {
   try {
     const html = await readFile(join(__dirname, 'views', 'privacy.html'), 'utf-8')
+    // 静的ページは1時間キャッシュ
+    c.header('Cache-Control', 'public, max-age=3600')
     return c.html(html)
   } catch (error) {
     console.error('Error loading privacy page:', error)
@@ -83,6 +87,8 @@ app.get('/cache/stats', (c) => {
 app.get('/tags', async (c) => {
   try {
     const tags = await getAllTags()
+    // タグは頻繁に変わらないので1時間キャッシュ
+    c.header('Cache-Control', 'public, max-age=3600')
     return c.json({ tags })
   } catch (error) {
     console.error('Error fetching tags:', error)
@@ -100,15 +106,20 @@ app.get('/auth/me', async (c) => {
     const userId = getSessionUserId(c)
 
     if (!userId) {
+      // 認証情報はキャッシュしない
+      c.header('Cache-Control', 'no-store')
       return c.json({ authenticated: false, user: null })
     }
 
     const user = await getUserById(userId)
 
     if (!user) {
+      c.header('Cache-Control', 'no-store')
       return c.json({ authenticated: false, user: null })
     }
 
+    // ユーザー情報は短時間のプライベートキャッシュ
+    c.header('Cache-Control', 'private, max-age=300')
     return c.json({
       authenticated: true,
       user: {
@@ -350,6 +361,8 @@ app.get('/streams/random-multiple', async (c) => {
           minFollowers,
           maxFollowers
         )
+        // レコメンデーションはユーザー固有なのでプライベートキャッシュ（5分）
+        c.header('Cache-Control', 'private, max-age=300')
         return c.json({
           ...result,
           count: result.streamers.length,
@@ -369,6 +382,8 @@ app.get('/streams/random-multiple', async (c) => {
           minFollowers,
           maxFollowers
         )
+        // レコメンデーションはユーザー固有なのでプライベートキャッシュ（5分）
+        c.header('Cache-Control', 'private, max-age=300')
         return c.json({
           streamers,
           count: streamers.length,
@@ -379,6 +394,8 @@ app.get('/streams/random-multiple', async (c) => {
     } else {
       // 既存のランダムロジック
       const streamers = await getRandomStreamers(count, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers)
+      // ストリーマーデータはユーザー固有なのでプライベートキャッシュ（5分）
+      c.header('Cache-Control', 'private, max-age=300')
       return c.json({
         streamers,
         count: streamers.length,
@@ -446,6 +463,8 @@ app.get('/streamers/live-status', async (c) => {
       })
     }
 
+    // ライブステータスは5分キャッシュ（頻繁に変わる可能性がある）
+    c.header('Cache-Control', 'public, max-age=300')
     return c.json({ liveStatus })
   } catch (error) {
     console.error('Error fetching live status:', error)

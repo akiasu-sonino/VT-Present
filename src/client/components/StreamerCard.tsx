@@ -52,7 +52,7 @@ function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, showRem
   return (
     <div className="streamer-card">
       <div className="card-image" onClick={onClick}>
-        <img src={streamer.avatar_url} alt={streamer.name} />
+        <img src={streamer.avatar_url} alt={streamer.name} loading="lazy" />
         <span className="platform-badge">{streamer.platform}</span>
         {liveInfo?.isLive && (
           <div className="live-badge">

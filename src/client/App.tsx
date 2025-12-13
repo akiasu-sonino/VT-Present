@@ -675,6 +675,7 @@ function App() {
                             src={comment.user.avatar_url}
                             alt={comment.user.name || 'User'}
                             className="comment-avatar"
+                            loading="lazy"
                           />
                         )}
                         <span className="comment-author">

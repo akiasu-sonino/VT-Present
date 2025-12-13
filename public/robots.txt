@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# クロール不要なパス
+Disallow: /api/
+Disallow: /api/auth/
+
+# Sitemap
+Sitemap: https://www.oshistream.jp/sitemap.xml
