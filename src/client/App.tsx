@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import StreamerCard from './components/StreamerCard'
 import PreferencesList from './components/PreferencesList'
 import TagFilter from './components/TagFilter'
+import SearchBox from './components/SearchBox'
+import FollowerFilter from './components/FollowerFilter'
+import FilterPresets, { type FilterPreset } from './components/FilterPresets'
 import UserMenu from './components/UserMenu'
 import { AdBanner } from './components/AdBanner'
 import OnboardingWizard from './components/onboarding/OnboardingWizard'
@@ -54,6 +57,10 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [selectedStreamer, setSelectedStreamer] = useState<Streamer | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [tagOperator, setTagOperator] = useState<'OR' | 'AND'>('OR')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [minFollowers, setMinFollowers] = useState(0)
+  const [maxFollowers, setMaxFollowers] = useState(Number.MAX_SAFE_INTEGER)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [commentText, setCommentText] = useState('')
@@ -72,6 +79,18 @@ function App() {
       const params = new URLSearchParams({ count: '12' })
       if (selectedTags.length > 0) {
         params.append('tags', selectedTags.join(','))
+        if (selectedTags.length > 1) {
+          params.append('tagOperator', tagOperator)
+        }
+      }
+      if (searchQuery.trim()) {
+        params.append('query', searchQuery.trim())
+      }
+      if (minFollowers > 0) {
+        params.append('minFollowers', minFollowers.toString())
+      }
+      if (maxFollowers < Number.MAX_SAFE_INTEGER) {
+        params.append('maxFollowers', maxFollowers.toString())
       }
 
       const response = await fetch(`/api/streams/random-multiple?${params.toString()}`)
@@ -89,7 +108,7 @@ function App() {
     } finally {
       setLoading(false)
     }
-  }, [selectedTags])
+  }, [selectedTags, tagOperator, searchQuery, minFollowers, maxFollowers])
 
   useEffect(() => {
     fetchStreamers()
@@ -444,7 +463,39 @@ function App() {
         {activeTab === 'discover' && (
           <>
             <div className="filters-container">
-              <TagFilter selectedTags={selectedTags} onTagsChange={setSelectedTags} />
+              <FilterPresets
+                onApplyPreset={(preset: FilterPreset) => {
+                  setSelectedTags(preset.tags)
+                  setTagOperator(preset.tagOperator)
+                  setSearchQuery(preset.searchQuery)
+                  setMinFollowers(preset.minFollowers)
+                  setMaxFollowers(preset.maxFollowers)
+                }}
+                currentFilters={{
+                  tags: selectedTags,
+                  tagOperator,
+                  searchQuery,
+                  minFollowers,
+                  maxFollowers
+                }}
+              />
+              <SearchBox
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="配信者名や説明で検索..."
+              />
+              <TagFilter
+                selectedTags={selectedTags}
+                onTagsChange={setSelectedTags}
+                tagOperator={tagOperator}
+                onTagOperatorChange={setTagOperator}
+              />
+              <FollowerFilter
+                minFollowers={minFollowers}
+                maxFollowers={maxFollowers}
+                onMinFollowersChange={setMinFollowers}
+                onMaxFollowersChange={setMaxFollowers}
+              />
               <button
                 className={`live-filter-btn ${showLiveOnly ? 'active' : ''}`}
                 onClick={() => setShowLiveOnly(!showLiveOnly)}
@@ -468,8 +519,14 @@ function App() {
 
             {!loading && !error && streamers.length === 0 && (
               <div className="empty-state">
-                <p>選択したタグの配信者が見つかりませんでした</p>
-                <button onClick={() => setSelectedTags([])}>フィルターをリセット</button>
+                <p>条件に合う配信者が見つかりませんでした</p>
+                <button onClick={() => {
+                  setSelectedTags([])
+                  setTagOperator('OR')
+                  setSearchQuery('')
+                  setMinFollowers(0)
+                  setMaxFollowers(Number.MAX_SAFE_INTEGER)
+                }}>フィルターをリセット</button>
               </div>
             )}
 

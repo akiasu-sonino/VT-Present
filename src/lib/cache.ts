@@ -82,15 +82,49 @@ class DataCache {
    * @param excludeIds 除外する配信者IDのリスト
    * @param tags フィルタリングするタグ（指定された場合、いずれかのタグを含むストリーマーのみ）
    */
-  async getRandomStreamers(count: number, excludeIds: number[] = [], tags: string[] = []): Promise<Streamer[]> {
+  async getRandomStreamers(
+    count: number,
+    excludeIds: number[] = [],
+    tags: string[] = [],
+    query?: string,
+    tagOperator: 'OR' | 'AND' = 'OR',
+    minFollowers?: number,
+    maxFollowers?: number
+  ): Promise<Streamer[]> {
     const streamers = await this.getStreamers()
     let available = streamers.filter(s => !excludeIds.includes(s.id))
 
-    // タグでフィルタリング（指定されたタグのいずれかを含むストリーマーのみ）
+    // フリーワード検索（配信者名、説明）
+    if (query && query.trim()) {
+      const searchTerm = query.trim().toLowerCase()
+      available = available.filter(s => {
+        const nameMatch = s.name?.toLowerCase().includes(searchTerm)
+        const descMatch = s.description?.toLowerCase().includes(searchTerm)
+        return nameMatch || descMatch
+      })
+    }
+
+    // フォロワー数フィルター
+    if (minFollowers !== undefined && minFollowers > 0) {
+      available = available.filter(s => s.follower_count >= minFollowers)
+    }
+    if (maxFollowers !== undefined && maxFollowers < Number.MAX_SAFE_INTEGER) {
+      available = available.filter(s => s.follower_count <= maxFollowers)
+    }
+
+    // タグでフィルタリング
     if (tags.length > 0) {
-      available = available.filter(s =>
-        s.tags && s.tags.some(tag => tags.includes(tag))
-      )
+      if (tagOperator === 'AND') {
+        // AND検索: すべてのタグを含むストリーマーのみ
+        available = available.filter(s =>
+          s.tags && tags.every(tag => s.tags.includes(tag))
+        )
+      } else {
+        // OR検索: いずれかのタグを含むストリーマーのみ
+        available = available.filter(s =>
+          s.tags && s.tags.some(tag => tags.includes(tag))
+        )
+      }
     }
 
     // Fisher-Yatesアルゴリズムでシャッフル

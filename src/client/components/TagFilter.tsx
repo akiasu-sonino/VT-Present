@@ -7,9 +7,16 @@ import '../styles/TagFilter.css'
 interface TagFilterProps {
   selectedTags: string[]
   onTagsChange: (tags: string[]) => void
+  tagOperator?: 'OR' | 'AND'
+  onTagOperatorChange?: (operator: 'OR' | 'AND') => void
 }
 
-function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
+function TagFilter({
+  selectedTags,
+  onTagsChange,
+  tagOperator = 'OR',
+  onTagOperatorChange
+}: TagFilterProps) {
   const [allTags, setAllTags] = useState<string[]>([])
   // ★ 1. 展開状態を管理するステートを追加 (デフォルトで閉じている)
   const [isOpen, setIsOpen] = useState(false)
@@ -96,13 +103,39 @@ function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
       {/* ★ 4. タグのクリアボタンとタグリストを isOpen の時だけ表示 */}
       {isOpen && (
         <div className="tag-filter-content">
-          {selectedTags.length > 0 && (
-            <div className="clear-button-container">
-              <button className="clear-tags-button" onClick={handleClearAll}>
-                すべて解除
-              </button>
-            </div>
-          )}
+          <div className="tag-filter-controls">
+            {selectedTags.length > 0 && (
+              <div className="clear-button-container">
+                <button className="clear-tags-button" onClick={handleClearAll}>
+                  すべて解除
+                </button>
+              </div>
+            )}
+            {selectedTags.length > 1 && onTagOperatorChange && (
+              <div className="tag-operator-toggle">
+                <label>
+                  <input
+                    type="radio"
+                    name="tagOperator"
+                    value="OR"
+                    checked={tagOperator === 'OR'}
+                    onChange={() => onTagOperatorChange('OR')}
+                  />
+                  <span>いずれか (OR)</span>
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="tagOperator"
+                    value="AND"
+                    checked={tagOperator === 'AND'}
+                    onChange={() => onTagOperatorChange('AND')}
+                  />
+                  <span>すべて (AND)</span>
+                </label>
+              </div>
+            )}
+          </div>
           <div className="tag-list">
             {(allTags || []).map(tag => (
               <button

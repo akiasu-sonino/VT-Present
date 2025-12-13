@@ -311,6 +311,18 @@ app.get('/streams/random-multiple', async (c) => {
     const tagsParam = c.req.query('tags')
     const tags = tagsParam ? tagsParam.split(',').map(t => t.trim()).filter(t => t.length > 0) : []
 
+    // タグ演算子を取得（AND/OR）
+    const tagOperator = (c.req.query('tagOperator') === 'AND' ? 'AND' : 'OR') as 'OR' | 'AND'
+
+    // フリーワード検索クエリを取得
+    const query = c.req.query('query')
+
+    // フォロワー数フィルターを取得
+    const minFollowersParam = c.req.query('minFollowers')
+    const maxFollowersParam = c.req.query('maxFollowers')
+    const minFollowers = minFollowersParam ? parseInt(minFollowersParam, 10) : undefined
+    const maxFollowers = maxFollowersParam ? parseInt(maxFollowersParam, 10) : undefined
+
     // アルゴリズム選択（random / collaborative）
     const algorithm = c.req.query('algorithm') || 'random'
 
@@ -332,12 +344,16 @@ app.get('/streams/random-multiple', async (c) => {
           excludeIds,
           tags,
           count,
-          randomRatio
+          randomRatio,
+          query,
+          tagOperator,
+          minFollowers,
+          maxFollowers
         )
         return c.json({
           ...result,
           count: result.streamers.length,
-          filters: { tags },
+          filters: { tags, query, tagOperator, minFollowers, maxFollowers },
           algorithm: 'collaborative'
         })
       } else {
@@ -347,22 +363,26 @@ app.get('/streams/random-multiple', async (c) => {
           excludeIds,
           tags,
           count,
-          randomRatio
+          randomRatio,
+          query,
+          tagOperator,
+          minFollowers,
+          maxFollowers
         )
         return c.json({
           streamers,
           count: streamers.length,
-          filters: { tags },
+          filters: { tags, query, tagOperator, minFollowers, maxFollowers },
           algorithm: 'collaborative'
         })
       }
     } else {
       // 既存のランダムロジック
-      const streamers = await getRandomStreamers(count, excludeIds, tags)
+      const streamers = await getRandomStreamers(count, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers)
       return c.json({
         streamers,
         count: streamers.length,
-        filters: { tags },
+        filters: { tags, query, tagOperator, minFollowers, maxFollowers },
         algorithm: 'random'
       })
     }

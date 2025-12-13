@@ -105,6 +105,8 @@ export async function findSimilarUsers(
  * @param tags タグフィルター
  * @param limit 取得数（デフォルト: 12）
  * @param randomRatio ランダム混入比率（デフォルト: 0.3）
+ * @param query フリーワード検索クエリ
+ * @param tagOperator タグ演算子（AND/OR）
  * @returns 推薦配信者のリスト
  */
 export async function getCollaborativeRecommendations(
@@ -112,7 +114,11 @@ export async function getCollaborativeRecommendations(
   excludeIds: number[] = [],
   tags: string[] = [],
   limit: number = 12,
-  randomRatio: number = 0.3
+  randomRatio: number = 0.3,
+  query?: string,
+  tagOperator: 'OR' | 'AND' = 'OR',
+  minFollowers?: number,
+  maxFollowers?: number
 ): Promise<Streamer[]> {
   // 類似ユーザーを取得
   const similarUsers = await findSimilarUsers(userId, 20)
@@ -120,7 +126,7 @@ export async function getCollaborativeRecommendations(
   // コールドスタート対応：類似ユーザーが見つからない場合はランダムにフォールバック
   if (similarUsers.length === 0) {
     console.log('[CollaborativeFiltering] No similar users found, falling back to random')
-    return cache.getRandomStreamers(limit, excludeIds, tags)
+    return cache.getRandomStreamers(limit, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers)
   }
 
   // 配信者ごとの推薦スコアを計算
@@ -159,11 +165,37 @@ export async function getCollaborativeRecommendations(
     .map(id => allStreamers.find(s => s.id === id))
     .filter(s => s !== undefined) as Streamer[]
 
+  // フリーワード検索フィルター
+  if (query && query.trim()) {
+    const searchTerm = query.trim().toLowerCase()
+    recommendedStreamers = recommendedStreamers.filter(s => {
+      const nameMatch = s.name?.toLowerCase().includes(searchTerm)
+      const descMatch = s.description?.toLowerCase().includes(searchTerm)
+      return nameMatch || descMatch
+    })
+  }
+
+  // フォロワー数フィルター
+  if (minFollowers !== undefined && minFollowers > 0) {
+    recommendedStreamers = recommendedStreamers.filter(s => s.follower_count >= minFollowers)
+  }
+  if (maxFollowers !== undefined && maxFollowers < Number.MAX_SAFE_INTEGER) {
+    recommendedStreamers = recommendedStreamers.filter(s => s.follower_count <= maxFollowers)
+  }
+
   // タグフィルター
   if (tags.length > 0) {
-    recommendedStreamers = recommendedStreamers.filter(s =>
-      s.tags && s.tags.some(tag => tags.includes(tag))
-    )
+    if (tagOperator === 'AND') {
+      // AND検索: すべてのタグを含むストリーマーのみ
+      recommendedStreamers = recommendedStreamers.filter(s =>
+        s.tags && tags.every(tag => s.tags.includes(tag))
+      )
+    } else {
+      // OR検索: いずれかのタグを含むストリーマーのみ
+      recommendedStreamers = recommendedStreamers.filter(s =>
+        s.tags && s.tags.some(tag => tags.includes(tag))
+      )
+    }
   }
 
   // ランダム混入（多様性確保）
@@ -174,7 +206,11 @@ export async function getCollaborativeRecommendations(
   const random = await cache.getRandomStreamers(
     randomCount,
     [...excludeIds, ...collaborative.map(s => s.id)],
-    tags
+    tags,
+    query,
+    tagOperator,
+    minFollowers,
+    maxFollowers
   )
 
   // シャッフルして返す
@@ -196,6 +232,8 @@ export async function getCollaborativeRecommendations(
  * @param tags タグフィルター
  * @param limit 取得数（デフォルト: 12）
  * @param randomRatio ランダム混入比率（デフォルト: 0.3）
+ * @param query フリーワード検索クエリ
+ * @param tagOperator タグ演算子（AND/OR）
  * @returns 推薦配信者のリスト（デバッグ情報付き）
  */
 export async function getCollaborativeRecommendationsWithDebug(
@@ -203,7 +241,11 @@ export async function getCollaborativeRecommendationsWithDebug(
   excludeIds: number[] = [],
   tags: string[] = [],
   limit: number = 12,
-  randomRatio: number = 0.3
+  randomRatio: number = 0.3,
+  query?: string,
+  tagOperator: 'OR' | 'AND' = 'OR',
+  minFollowers?: number,
+  maxFollowers?: number
 ): Promise<{
   streamers: (Streamer & { _meta: { source: string; score?: number } })[]
   _debug: {
@@ -222,7 +264,7 @@ export async function getCollaborativeRecommendationsWithDebug(
 
   // コールドスタート対応
   if (similarUsers.length === 0) {
-    const randomStreamers = await cache.getRandomStreamers(limit, excludeIds, tags)
+    const randomStreamers = await cache.getRandomStreamers(limit, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers)
     return {
       streamers: randomStreamers.map(s => ({
         ...s,
@@ -273,11 +315,37 @@ export async function getCollaborativeRecommendationsWithDebug(
     })
     .filter(s => s !== null) as (Streamer & { _score: number })[]
 
+  // フリーワード検索フィルター
+  if (query && query.trim()) {
+    const searchTerm = query.trim().toLowerCase()
+    recommendedStreamers = recommendedStreamers.filter(s => {
+      const nameMatch = s.name?.toLowerCase().includes(searchTerm)
+      const descMatch = s.description?.toLowerCase().includes(searchTerm)
+      return nameMatch || descMatch
+    })
+  }
+
+  // フォロワー数フィルター
+  if (minFollowers !== undefined && minFollowers > 0) {
+    recommendedStreamers = recommendedStreamers.filter(s => s.follower_count >= minFollowers)
+  }
+  if (maxFollowers !== undefined && maxFollowers < Number.MAX_SAFE_INTEGER) {
+    recommendedStreamers = recommendedStreamers.filter(s => s.follower_count <= maxFollowers)
+  }
+
   // タグフィルター
   if (tags.length > 0) {
-    recommendedStreamers = recommendedStreamers.filter(s =>
-      s.tags && s.tags.some(tag => tags.includes(tag))
-    )
+    if (tagOperator === 'AND') {
+      // AND検索: すべてのタグを含むストリーマーのみ
+      recommendedStreamers = recommendedStreamers.filter(s =>
+        s.tags && tags.every(tag => s.tags.includes(tag))
+      )
+    } else {
+      // OR検索: いずれかのタグを含むストリーマーのみ
+      recommendedStreamers = recommendedStreamers.filter(s =>
+        s.tags && s.tags.some(tag => tags.includes(tag))
+      )
+    }
   }
 
   // ランダム混入
@@ -288,7 +356,11 @@ export async function getCollaborativeRecommendationsWithDebug(
   const random = await cache.getRandomStreamers(
     randomCount,
     [...excludeIds, ...collaborative.map(s => s.id)],
-    tags
+    tags,
+    query,
+    tagOperator,
+    minFollowers,
+    maxFollowers
   )
 
   // 結果を構築
