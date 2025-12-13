@@ -1,80 +1,68 @@
 .tag-filter {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  margin-bottom: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  position: relative;
+  display: inline-block;
 }
 
-.tag-filter.loading,
-.tag-filter.error {
-  text-align: center;
-  padding: 1.5rem;
-}
-
-.tag-filter.error {
-  background: linear-gradient(135deg, #fee 0%, #fdd 100%);
-  color: #c33;
-}
-
-.tag-filter.error p {
-  margin: 0;
+.filter-dropdown-button {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
   font-weight: 500;
-}
-
-/* ヘッダー部分（クリック可能） */
-.tag-filter-header-toggle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.25rem 1.5rem;
+  color: #333;
   cursor: pointer;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  transition: all 0.3s ease;
-  user-select: none;
-}
-
-.tag-filter-header-toggle:hover {
-  background: linear-gradient(135deg, #5568d3 0%, #653a8b 100%);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-}
-
-.tag-filter-header-toggle h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #ffffff;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  white-space: nowrap;
 }
 
-.tag-filter-header-toggle h3::before {
-  content: '🏷️';
-  font-size: 1.2rem;
+.filter-dropdown-button:hover:not(:disabled) {
+  border-color: #007bff;
+  background: #f8f9fa;
 }
 
-.toggle-icon {
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.9);
-  transition: transform 0.3s ease;
-  font-weight: bold;
+.filter-dropdown-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.tag-filter.open .toggle-icon {
-  transform: rotate(180deg);
+.filter-dropdown-button.active {
+  border-color: #007bff;
+  background: #e7f3ff;
+  color: #007bff;
 }
 
-/* コンテンツ部分（展開時に表示） */
-.tag-filter-content {
-  padding: 1.5rem;
-  background: #ffffff;
-  animation: slideDown 0.3s ease-out;
+.active-badge {
+  background: #007bff;
+  color: white;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
-@keyframes slideDown {
+.filter-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 300px;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  animation: dropdownFadeIn 0.2s ease-out;
+}
+
+.tag-filter-wide {
+  min-width: 450px;
+  max-width: 600px;
+}
+
+@keyframes dropdownFadeIn {
   from {
     opacity: 0;
     transform: translateY(-10px);
@@ -85,201 +73,264 @@
   }
 }
 
-.tag-filter-controls {
+/* 検索ボックス */
+.tag-search-box {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tag-search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.tag-search-input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+/* 選択済みタグセクション */
+.selected-tags-section {
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tag-section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
-  gap: 1rem;
-  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #555;
 }
 
-.clear-button-container {
-  display: flex;
-  justify-content: flex-start;
+.clear-tags-button {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.clear-tags-button:hover {
+  background: #e8e8e8;
+  color: #333;
 }
 
 .tag-operator-toggle {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: center;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e0e0e0;
 }
 
 .tag-operator-toggle label {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: #555;
+  font-weight: 500;
 }
 
 .tag-operator-toggle input[type="radio"] {
   cursor: pointer;
 }
 
-.tag-operator-toggle span {
-  user-select: none;
+/* カテゴリ別タグ */
+.tags-by-category {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0.75rem;
 }
 
-.clear-tags-button {
-  background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 0.5rem 1.2rem;
-  font-size: 0.9rem;
+.tag-category {
+  margin-bottom: 1rem;
+}
+
+.tag-category:last-child {
+  margin-bottom: 0;
+}
+
+.tag-category-header {
+  font-size: 0.85rem;
   font-weight: 600;
   color: #666;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid #e8e8e8;
 }
 
-.clear-tags-button:hover {
-  background: linear-gradient(135deg, #e8e8e8 0%, #ddd 100%);
-  border-color: #ccc;
-  color: #333;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
-}
-
-.clear-tags-button:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* タグリスト */
 .tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 
 .tag-button {
-  background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
-  border: 2px solid #e5e5e5;
-  border-radius: 24px;
-  padding: 0.6rem 1.2rem;
-  font-size: 0.9rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
   font-weight: 500;
   color: #555;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   white-space: nowrap;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-  position: relative;
-  overflow: hidden;
-}
-
-.tag-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  z-index: -1;
 }
 
 .tag-button:hover {
-  border-color: #d0d0d0;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.tag-button:hover::before {
-  opacity: 0.1;
+  border-color: #007bff;
+  background: #f0f0f0;
 }
 
 .tag-button.selected {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: #667eea;
-  color: #ffffff;
+  background: #007bff;
+  border-color: #007bff;
+  color: white;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-.tag-button.selected::before {
-  opacity: 0;
 }
 
 .tag-button.selected:hover {
-  background: linear-gradient(135deg, #5568d3 0%, #653a8b 100%);
-  border-color: #5568d3;
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+  background: #0056b3;
+  border-color: #0056b3;
 }
 
-.tag-button:active {
-  transform: translateY(-1px) scale(0.98);
-}
-
-/* 選択されたタグ数のバッジ（オプション） */
-.selected-count {
-  background: rgba(255, 255, 255, 0.3);
-  color: #ffffff;
-  padding: 0.25rem 0.6rem;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-left: 0.5rem;
+.no-results {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #999;
+  font-size: 0.9rem;
 }
 
 /* レスポンシブ対応 */
 @media (max-width: 768px) {
-  .tag-filter {
-    margin-bottom: 1.5rem;
+  .tag-filter-wide {
+    min-width: 300px;
+    max-width: 90vw;
   }
 
-  .tag-filter-header-toggle {
-    padding: 1rem 1.2rem;
-  }
-
-  .tag-filter-header-toggle h3 {
-    font-size: 1rem;
-  }
-
-  .tag-filter-content {
-    padding: 1rem;
-  }
-
-  .tag-button {
-    font-size: 0.85rem;
-    padding: 0.5rem 1rem;
-  }
-
-  .clear-tags-button {
-    font-size: 0.85rem;
-    padding: 0.4rem 1rem;
-  }
-
-  .tag-list {
-    gap: 0.5rem;
+  .tags-by-category {
+    max-height: 300px;
   }
 }
 
-/* ダークモード対応（将来のため） */
+/* ダークモード対応 */
 @media (prefers-color-scheme: dark) {
-  .tag-filter {
-    background: rgba(30, 30, 30, 0.95);
-  }
-
-  .tag-filter-content {
-    background: #1a1a1a;
-  }
-
-  .tag-button {
-    background: linear-gradient(135deg, #2a2a2a 0%, #222 100%);
+  .filter-dropdown-button {
+    background: #2a2a2a;
     border-color: #444;
+    color: #ddd;
+  }
+
+  .filter-dropdown-button:hover:not(:disabled) {
+    border-color: #4a9eff;
+    background: #333;
+  }
+
+  .filter-dropdown-button.active {
+    border-color: #4a9eff;
+    background: #1a3a5a;
+    color: #4a9eff;
+  }
+
+  .active-badge {
+    background: #4a9eff;
+    color: #1a1a1a;
+  }
+
+  .filter-dropdown-menu {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+
+  .tag-search-box {
+    border-bottom-color: #444;
+  }
+
+  .tag-search-input {
+    background: #1a1a1a;
+    border-color: #444;
+    color: #ddd;
+  }
+
+  .tag-search-input:focus {
+    border-color: #4a9eff;
+    box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+  }
+
+  .selected-tags-section {
+    background: #1f1f1f;
+    border-bottom-color: #444;
+  }
+
+  .tag-section-header {
     color: #ddd;
   }
 
   .clear-tags-button {
-    background: linear-gradient(135deg, #2a2a2a 0%, #222 100%);
+    background: #1a1a1a;
     border-color: #444;
     color: #ddd;
+  }
+
+  .clear-tags-button:hover {
+    background: #333;
+    color: #fff;
+  }
+
+  .tag-operator-toggle {
+    border-top-color: #444;
+  }
+
+  .tag-operator-toggle label {
+    color: #ddd;
+  }
+
+  .tag-category-header {
+    color: #aaa;
+    border-bottom-color: #444;
+  }
+
+  .tag-button {
+    background: #1a1a1a;
+    border-color: #444;
+    color: #ddd;
+  }
+
+  .tag-button:hover {
+    border-color: #4a9eff;
+    background: #333;
+  }
+
+  .tag-button.selected {
+    background: #4a9eff;
+    border-color: #4a9eff;
+    color: #1a1a1a;
+  }
+
+  .tag-button.selected:hover {
+    background: #3a8eef;
+    border-color: #3a8eef;
+  }
+
+  .no-results {
+    color: #666;
   }
 }

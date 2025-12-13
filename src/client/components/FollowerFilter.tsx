@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import '../styles/FollowerFilter.css'
 
 interface FollowerFilterProps {
@@ -16,9 +16,20 @@ function FollowerFilter({
 }: FollowerFilterProps) {
   const [isOpen, setIsOpen] = useState(false)
 
-  const handleToggle = () => {
-    setIsOpen(prev => !prev)
-  }
+  // クリック外部でドロップダウンを閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.follower-filter')) {
+        setIsOpen(false)
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen])
 
   const handleClear = () => {
     onMinFollowersChange(0)
@@ -41,19 +52,17 @@ function FollowerFilter({
   }
 
   return (
-    <div className={`follower-filter ${isOpen ? 'open' : 'closed'}`}>
-      <div className="follower-filter-header-toggle" onClick={handleToggle}>
-        <h3>
-          フォロワー数
-          {hasFilter && <span className="filter-active-badge">●</span>}
-        </h3>
-        <span className="toggle-icon">
-          {isOpen ? '▲' : '▼'}
-        </span>
-      </div>
+    <div className="follower-filter">
+      <button
+        className={`filter-dropdown-button ${hasFilter ? 'active' : ''}`}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        フォロワー {isOpen ? '▲' : '▼'}
+        {hasFilter && <span className="active-dot">●</span>}
+      </button>
 
       {isOpen && (
-        <div className="follower-filter-content">
+        <div className="filter-dropdown-menu">
           <div className="follower-presets">
             {presets.map((preset, index) => (
               <button

@@ -1,68 +1,54 @@
 .filter-presets {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  position: relative;
+  display: inline-block;
 }
 
-.filter-presets-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.25rem 1.5rem;
+.filter-dropdown-button {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #333;
   cursor: pointer;
-  background: linear-gradient(135deg, #66bb6a 0%, #4caf50 100%);
-  transition: all 0.3s ease;
-  user-select: none;
-}
-
-.filter-presets-header:hover {
-  background: linear-gradient(135deg, #5aa85e 0%, #43a047 100%);
-  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
-}
-
-.filter-presets-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #ffffff;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  white-space: nowrap;
 }
 
-.filter-presets-header h3::before {
-  content: '⭐';
-  font-size: 1.2rem;
+.filter-dropdown-button:hover {
+  border-color: #007bff;
+  background: #f8f9fa;
 }
 
-.active-indicator {
-  color: #ffeb3b;
-  font-size: 0.8rem;
-  margin-left: 0.25rem;
+.filter-dropdown-button.active {
+  border-color: #007bff;
+  background: #e7f3ff;
+  color: #007bff;
 }
 
-.toggle-icon {
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.9);
-  transition: transform 0.3s ease;
-  font-weight: bold;
+.active-dot {
+  color: #ffc107;
+  font-size: 0.7rem;
 }
 
-.filter-presets.open .toggle-icon {
-  transform: rotate(180deg);
+.filter-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 200px;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  animation: dropdownFadeIn 0.2s ease-out;
 }
 
-.filter-presets-content {
-  padding: 1.5rem;
-  background: #ffffff;
-  animation: slideDown 0.3s ease-out;
-}
-
-@keyframes slideDown {
+@keyframes dropdownFadeIn {
   from {
     opacity: 0;
     transform: translateY(-10px);
@@ -74,72 +60,73 @@
 }
 
 .presets-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  padding: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .preset-item {
   display: flex;
   gap: 0.5rem;
-  align-items: stretch;
+  margin-bottom: 0.25rem;
+}
+
+.preset-item:last-child {
+  margin-bottom: 0;
 }
 
 .preset-button {
   flex: 1;
-  background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
-  border: 2px solid #e5e5e5;
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #555;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  color: #333;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   text-align: left;
 }
 
 .preset-button:hover {
-  border-color: #66bb6a;
-  background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background: #f0f0f0;
+  border-color: #007bff;
 }
 
 .delete-button {
   background: #ff5252;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   color: white;
   cursor: pointer;
-  padding: 0 0.75rem;
-  font-size: 1.2rem;
-  transition: all 0.2s ease;
+  padding: 0 0.6rem;
+  font-size: 1.1rem;
+  transition: all 0.15s ease;
+  min-width: 32px;
 }
 
 .delete-button:hover {
   background: #ff1744;
-  transform: scale(1.1);
 }
 
 .save-current-button {
-  width: 100%;
-  background: linear-gradient(135deg, #66bb6a 0%, #4caf50 100%);
+  width: calc(100% - 1rem);
+  margin: 0.5rem 0.5rem 0.5rem 0.5rem;
+  background: #007bff;
   border: none;
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  font-size: 0.95rem;
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: white;
   cursor: pointer;
   transition: all 0.2s ease;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 0.75rem;
 }
 
 .save-current-button:hover {
-  background: linear-gradient(135deg, #5aa85e 0%, #43a047 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  background: #0056b3;
 }
 
 .save-modal {
@@ -167,8 +154,8 @@
 
 .save-modal-content {
   background: white;
-  border-radius: 16px;
-  padding: 2rem;
+  border-radius: 12px;
+  padding: 1.5rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   max-width: 400px;
   width: 90%;
@@ -200,12 +187,13 @@
   font-size: 1rem;
   margin-bottom: 1rem;
   transition: border-color 0.2s ease;
+  box-sizing: border-box;
 }
 
 .save-modal-content input:focus {
   outline: none;
-  border-color: #66bb6a;
-  box-shadow: 0 0 0 3px rgba(102, 187, 106, 0.1);
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .modal-buttons {
@@ -225,13 +213,12 @@
 }
 
 .modal-buttons button:first-child {
-  background: linear-gradient(135deg, #66bb6a 0%, #4caf50 100%);
+  background: #007bff;
   color: white;
 }
 
 .modal-buttons button:first-child:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5aa85e 0%, #43a047 100%);
-  transform: translateY(-2px);
+  background: #0056b3;
 }
 
 .modal-buttons button:first-child:disabled {
@@ -246,23 +233,41 @@
 
 .modal-buttons button:last-child:hover {
   background: #d0d0d0;
-  transform: translateY(-2px);
 }
 
 /* ダークモード対応 */
 @media (prefers-color-scheme: dark) {
-  .filter-presets {
-    background: rgba(30, 30, 30, 0.95);
+  .filter-dropdown-button {
+    background: #2a2a2a;
+    border-color: #444;
+    color: #ddd;
   }
 
-  .filter-presets-content {
-    background: #1a1a1a;
+  .filter-dropdown-button:hover {
+    border-color: #4a9eff;
+    background: #333;
+  }
+
+  .filter-dropdown-button.active {
+    border-color: #4a9eff;
+    background: #1a3a5a;
+    color: #4a9eff;
+  }
+
+  .filter-dropdown-menu {
+    background: #2a2a2a;
+    border-color: #444;
   }
 
   .preset-button {
-    background: linear-gradient(135deg, #2a2a2a 0%, #222 100%);
+    background: #1a1a1a;
     border-color: #444;
     color: #ddd;
+  }
+
+  .preset-button:hover {
+    background: #333;
+    border-color: #4a9eff;
   }
 
   .save-modal-content {

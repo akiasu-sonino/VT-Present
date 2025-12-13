@@ -1,68 +1,55 @@
 .follower-filter {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  position: relative;
+  display: inline-block;
 }
 
-.follower-filter-header-toggle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.25rem 1.5rem;
+.filter-dropdown-button {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #333;
   cursor: pointer;
-  background: linear-gradient(135deg, #42a5f5 0%, #478ed1 100%);
-  transition: all 0.3s ease;
-  user-select: none;
-}
-
-.follower-filter-header-toggle:hover {
-  background: linear-gradient(135deg, #3894e3 0%, #3a7cbd 100%);
-  box-shadow: 0 2px 8px rgba(66, 165, 245, 0.3);
-}
-
-.follower-filter-header-toggle h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #ffffff;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  white-space: nowrap;
 }
 
-.follower-filter-header-toggle h3::before {
-  content: '👥';
-  font-size: 1.2rem;
+.filter-dropdown-button:hover {
+  border-color: #007bff;
+  background: #f8f9fa;
 }
 
-.filter-active-badge {
-  color: #ffeb3b;
-  font-size: 0.8rem;
-  margin-left: 0.25rem;
+.filter-dropdown-button.active {
+  border-color: #007bff;
+  background: #e7f3ff;
+  color: #007bff;
 }
 
-.toggle-icon {
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.9);
-  transition: transform 0.3s ease;
-  font-weight: bold;
+.active-dot {
+  color: #ffc107;
+  font-size: 0.7rem;
 }
 
-.follower-filter.open .toggle-icon {
-  transform: rotate(180deg);
+.filter-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 280px;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  padding: 0.75rem;
+  animation: dropdownFadeIn 0.2s ease-out;
 }
 
-.follower-filter-content {
-  padding: 1.5rem;
-  background: #ffffff;
-  animation: slideDown 0.3s ease-out;
-}
-
-@keyframes slideDown {
+@keyframes dropdownFadeIn {
   from {
     opacity: 0;
     transform: translateY(-10px);
@@ -76,76 +63,78 @@
 .follower-presets {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .preset-button {
-  background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
-  border: 2px solid #e5e5e5;
-  border-radius: 8px;
-  padding: 0.6rem 1rem;
-  font-size: 0.9rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
   font-weight: 500;
   color: #555;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   white-space: nowrap;
+  flex: 1;
+  min-width: 60px;
 }
 
 .preset-button:hover {
-  border-color: #42a5f5;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-color: #007bff;
+  background: #f0f0f0;
 }
 
 .preset-button.selected {
-  background: linear-gradient(135deg, #42a5f5 0%, #478ed1 100%);
-  border-color: #42a5f5;
-  color: #ffffff;
+  background: #007bff;
+  border-color: #007bff;
+  color: white;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(66, 165, 245, 0.3);
 }
 
 .follower-range-inputs {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .input-group {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .input-group label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #555;
 }
 
 .input-group input {
-  padding: 0.6rem 0.8rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 0.95rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.9rem;
   transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .input-group input:focus {
   outline: none;
-  border-color: #42a5f5;
-  box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.1);
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
 }
 
 .range-separator {
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #999;
-  margin-top: 1.5rem;
+  margin-top: 1.2rem;
 }
 
 .clear-button-container {
@@ -154,39 +143,61 @@
 }
 
 .clear-button {
-  background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 0.5rem 1.2rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   color: #666;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .clear-button:hover {
-  background: linear-gradient(135deg, #e8e8e8 0%, #ddd 100%);
-  border-color: #ccc;
+  background: #e8e8e8;
   color: #333;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* ダークモード対応 */
 @media (prefers-color-scheme: dark) {
-  .follower-filter {
-    background: rgba(30, 30, 30, 0.95);
+  .filter-dropdown-button {
+    background: #2a2a2a;
+    border-color: #444;
+    color: #ddd;
   }
 
-  .follower-filter-content {
-    background: #1a1a1a;
+  .filter-dropdown-button:hover {
+    border-color: #4a9eff;
+    background: #333;
+  }
+
+  .filter-dropdown-button.active {
+    border-color: #4a9eff;
+    background: #1a3a5a;
+    color: #4a9eff;
+  }
+
+  .filter-dropdown-menu {
+    background: #2a2a2a;
+    border-color: #444;
   }
 
   .preset-button {
-    background: linear-gradient(135deg, #2a2a2a 0%, #222 100%);
+    background: #1a1a1a;
     border-color: #444;
     color: #ddd;
+  }
+
+  .preset-button:hover {
+    border-color: #4a9eff;
+    background: #333;
+  }
+
+  .preset-button.selected {
+    background: #4a9eff;
+    border-color: #4a9eff;
+    color: #1a1a1a;
   }
 
   .input-group label {
@@ -194,14 +205,24 @@
   }
 
   .input-group input {
-    background: #2a2a2a;
+    background: #1a1a1a;
     border-color: #444;
     color: #ddd;
   }
 
+  .input-group input:focus {
+    border-color: #4a9eff;
+    box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+  }
+
   .clear-button {
-    background: linear-gradient(135deg, #2a2a2a 0%, #222 100%);
+    background: #1a1a1a;
     border-color: #444;
     color: #ddd;
+  }
+
+  .clear-button:hover {
+    background: #333;
+    color: #fff;
   }
 }

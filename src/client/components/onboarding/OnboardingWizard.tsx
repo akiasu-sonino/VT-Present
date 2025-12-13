@@ -19,7 +19,6 @@ interface QuizAnswer {
 
 function OnboardingWizard({ isOpen, onComplete, onSkip }: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState<Step>('quiz')
-  const [quizAnswers, setQuizAnswers] = useState<QuizAnswer[]>([])
   const [recommendedTags, setRecommendedTags] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -27,7 +26,6 @@ function OnboardingWizard({ isOpen, onComplete, onSkip }: OnboardingWizardProps)
   if (!isOpen) return null
 
   const handleQuizComplete = async (answers: QuizAnswer[]) => {
-    setQuizAnswers(answers)
     setLoading(true)
 
     try {

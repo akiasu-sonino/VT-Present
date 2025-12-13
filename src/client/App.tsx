@@ -463,45 +463,49 @@ function App() {
         {activeTab === 'discover' && (
           <>
             <div className="filters-container">
-              <FilterPresets
-                onApplyPreset={(preset: FilterPreset) => {
-                  setSelectedTags(preset.tags)
-                  setTagOperator(preset.tagOperator)
-                  setSearchQuery(preset.searchQuery)
-                  setMinFollowers(preset.minFollowers)
-                  setMaxFollowers(preset.maxFollowers)
-                }}
-                currentFilters={{
-                  tags: selectedTags,
-                  tagOperator,
-                  searchQuery,
-                  minFollowers,
-                  maxFollowers
-                }}
-              />
-              <SearchBox
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="配信者名や説明で検索..."
-              />
-              <TagFilter
-                selectedTags={selectedTags}
-                onTagsChange={setSelectedTags}
-                tagOperator={tagOperator}
-                onTagOperatorChange={setTagOperator}
-              />
-              <FollowerFilter
-                minFollowers={minFollowers}
-                maxFollowers={maxFollowers}
-                onMinFollowersChange={setMinFollowers}
-                onMaxFollowersChange={setMaxFollowers}
-              />
-              <button
-                className={`live-filter-btn ${showLiveOnly ? 'active' : ''}`}
-                onClick={() => setShowLiveOnly(!showLiveOnly)}
-              >
-                {showLiveOnly ? '● ライブ中のみ表示' : 'ライブ中のみ表示'}
-              </button>
+              <div className="filters-row">
+                <FilterPresets
+                  onApplyPreset={(preset: FilterPreset) => {
+                    setSelectedTags(preset.tags)
+                    setTagOperator(preset.tagOperator)
+                    setSearchQuery(preset.searchQuery)
+                    setMinFollowers(preset.minFollowers)
+                    setMaxFollowers(preset.maxFollowers)
+                  }}
+                  currentFilters={{
+                    tags: selectedTags,
+                    tagOperator,
+                    searchQuery,
+                    minFollowers,
+                    maxFollowers
+                  }}
+                />
+                <TagFilter
+                  selectedTags={selectedTags}
+                  onTagsChange={setSelectedTags}
+                  tagOperator={tagOperator}
+                  onTagOperatorChange={setTagOperator}
+                />
+                <FollowerFilter
+                  minFollowers={minFollowers}
+                  maxFollowers={maxFollowers}
+                  onMinFollowersChange={setMinFollowers}
+                  onMaxFollowersChange={setMaxFollowers}
+                />
+                <button
+                  className={`live-filter-btn ${showLiveOnly ? 'active' : ''}`}
+                  onClick={() => setShowLiveOnly(!showLiveOnly)}
+                >
+                  {showLiveOnly ? 'ライブ中 ●' : 'ライブ中のみ'}
+                </button>
+              </div>
+              <div className="search-row">
+                <SearchBox
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="配信者名や説明で検索..."
+                />
+              </div>
             </div>
 
             {loading && (

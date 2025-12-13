@@ -1,14 +1,28 @@
 import { useState, useEffect } from 'react'
 import '../styles/TagFilter.css'
-// 必要に応じてアイコンライブラリをインポート
-// 例: import { ChevronDown, ChevronUp } from 'lucide-react'; 
-// (ここでは便宜上、HTMLエンティティ '▼' と '▲' を使います)
 
 interface TagFilterProps {
   selectedTags: string[]
   onTagsChange: (tags: string[]) => void
   tagOperator?: 'OR' | 'AND'
   onTagOperatorChange?: (operator: 'OR' | 'AND') => void
+}
+
+// タグのカテゴリ定義
+const TAG_CATEGORIES: Record<string, string[]> = {
+  'ゲーム配信': ['ゲーム', 'FPS', 'RPG', 'アクション', '格ゲー', 'ホラゲー', 'マイクラ', 'APEX', 'Valorant'],
+  'エンタメ': ['歌ってみた', '雑談', 'ASMR', '料理', 'お絵描き', '踊ってみた', '楽器演奏'],
+  '学習・教養': ['プログラミング', '勉強', '英語', '読書', '解説'],
+  'その他': []  // マッチしないタグはその他に
+}
+
+function categorizeTag(tag: string): string {
+  for (const [category, tags] of Object.entries(TAG_CATEGORIES)) {
+    if (tags.includes(tag)) {
+      return category
+    }
+  }
+  return 'その他'
 }
 
 function TagFilter({
@@ -18,14 +32,29 @@ function TagFilter({
   onTagOperatorChange
 }: TagFilterProps) {
   const [allTags, setAllTags] = useState<string[]>([])
-  // ★ 1. 展開状態を管理するステートを追加 (デフォルトで閉じている)
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     fetchTags()
   }, [])
+
+  // クリック外部でドロップダウンを閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.tag-filter')) {
+        setIsOpen(false)
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen])
 
   const fetchTags = async () => {
     // (タグの取得ロジックは変更なし)
@@ -61,92 +90,145 @@ function TagFilter({
     onTagsChange([])
   }
 
-  // ★ 2. 開閉を切り替えるハンドラ
-  const handleToggle = () => {
-    setIsOpen(prev => !prev)
-  }
+  // 検索フィルタリング
+  const filteredTags = allTags.filter(tag =>
+    tag.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // カテゴリごとにタグを分類
+  const categorizedTags: Record<string, string[]> = {}
+  filteredTags.forEach(tag => {
+    const category = categorizeTag(tag)
+    if (!categorizedTags[category]) {
+      categorizedTags[category] = []
+    }
+    categorizedTags[category].push(tag)
+  })
+
+  // 未選択タグのみを抽出
+  const unselectedTags = filteredTags.filter(tag => !selectedTags.includes(tag))
 
   if (loading) {
     return (
-      <div className="tag-filter loading">
-        <p>タグを読み込み中...</p>
+      <div className="tag-filter">
+        <button className="filter-dropdown-button" disabled>
+          タグ (読込中...)
+        </button>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="tag-filter error">
-        <p>{error}</p>
+      <div className="tag-filter">
+        <button className="filter-dropdown-button" disabled>
+          タグ (エラー)
+        </button>
       </div>
     )
   }
 
   return (
-    // ★ 展開状態に応じてクラスを追加 (CSSでのスタイリング用)
-    <div className={`tag-filter ${isOpen ? 'open' : 'closed'}`}>
+    <div className="tag-filter">
+      <button
+        className={`filter-dropdown-button ${selectedTags.length > 0 ? 'active' : ''}`}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        タグ {isOpen ? '▲' : '▼'}
+        {selectedTags.length > 0 && (
+          <span className="active-badge">{selectedTags.length}</span>
+        )}
+      </button>
 
-      {/* ★ 3. ヘッダーをクリック可能にし、開閉を切り替える */}
-      <div className="tag-filter-header-toggle" onClick={handleToggle}>
-        <h3>
-          タグでフィルター
-          {selectedTags.length > 0 && (
-            <span className="selected-count">{selectedTags.length}</span>
-          )}
-        </h3>
-        {/* 開閉インジケーター */}
-        <span className="toggle-icon">
-          {isOpen ? '▲' : '▼'}
-        </span>
-      </div>
-
-      {/* ★ 4. タグのクリアボタンとタグリストを isOpen の時だけ表示 */}
       {isOpen && (
-        <div className="tag-filter-content">
-          <div className="tag-filter-controls">
-            {selectedTags.length > 0 && (
-              <div className="clear-button-container">
+        <div className="filter-dropdown-menu tag-filter-wide">
+          {/* 検索ボックス */}
+          <div className="tag-search-box">
+            <input
+              type="text"
+              placeholder="タグを検索..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="tag-search-input"
+            />
+          </div>
+
+          {/* 選択済みタグ */}
+          {selectedTags.length > 0 && (
+            <div className="selected-tags-section">
+              <div className="tag-section-header">
+                <span>選択中</span>
                 <button className="clear-tags-button" onClick={handleClearAll}>
                   すべて解除
                 </button>
               </div>
-            )}
-            {selectedTags.length > 1 && onTagOperatorChange && (
-              <div className="tag-operator-toggle">
-                <label>
-                  <input
-                    type="radio"
-                    name="tagOperator"
-                    value="OR"
-                    checked={tagOperator === 'OR'}
-                    onChange={() => onTagOperatorChange('OR')}
-                  />
-                  <span>いずれか (OR)</span>
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="tagOperator"
-                    value="AND"
-                    checked={tagOperator === 'AND'}
-                    onChange={() => onTagOperatorChange('AND')}
-                  />
-                  <span>すべて (AND)</span>
-                </label>
+              <div className="tag-list">
+                {selectedTags.map(tag => (
+                  <button
+                    key={tag}
+                    className="tag-button selected"
+                    onClick={() => handleTagClick(tag)}
+                  >
+                    {tag} ×
+                  </button>
+                ))}
               </div>
-            )}
+              {selectedTags.length > 1 && onTagOperatorChange && (
+                <div className="tag-operator-toggle">
+                  <label>
+                    <input
+                      type="radio"
+                      name="tagOperator"
+                      value="OR"
+                      checked={tagOperator === 'OR'}
+                      onChange={() => onTagOperatorChange('OR')}
+                    />
+                    <span>OR</span>
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="tagOperator"
+                      value="AND"
+                      checked={tagOperator === 'AND'}
+                      onChange={() => onTagOperatorChange('AND')}
+                    />
+                    <span>AND</span>
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* カテゴリ別タグ一覧 */}
+          <div className="tags-by-category">
+            {Object.entries(categorizedTags).map(([category, tags]) => {
+              // 選択済みタグを除外
+              const categoryUnselectedTags = tags.filter(tag => !selectedTags.includes(tag))
+              if (categoryUnselectedTags.length === 0) return null
+
+              return (
+                <div key={category} className="tag-category">
+                  <div className="tag-category-header">{category}</div>
+                  <div className="tag-list">
+                    {categoryUnselectedTags.map(tag => (
+                      <button
+                        key={tag}
+                        className="tag-button"
+                        onClick={() => handleTagClick(tag)}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-          <div className="tag-list">
-            {(allTags || []).map(tag => (
-              <button
-                key={tag}
-                className={`tag-button ${selectedTags.includes(tag) ? 'selected' : ''}`}
-                onClick={() => handleTagClick(tag)}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
+
+          {unselectedTags.length === 0 && searchQuery && (
+            <div className="no-results">「{searchQuery}」に一致するタグが見つかりません</div>
+          )}
         </div>
       )}
     </div>
