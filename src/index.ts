@@ -335,6 +335,11 @@ app.get('/streams/random-multiple', async (c) => {
     const minFollowers = minFollowersParam ? parseInt(minFollowersParam, 10) : undefined
     const maxFollowers = maxFollowersParam ? parseInt(maxFollowersParam, 10) : undefined
 
+    // デバッグ: フォロワー数フィルタのパラメータをログ出力
+    if (minFollowers !== undefined || maxFollowers !== undefined) {
+      console.log(`[API] Follower filter params: min=${minFollowers}, max=${maxFollowers}`)
+    }
+
     // ライブ中のみフィルター
     const liveOnly = c.req.query('liveOnly') === 'true'
 

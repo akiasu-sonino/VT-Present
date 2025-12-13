@@ -10,6 +10,7 @@
     "migrate-tag-categories": "tsx scripts/migrate-tag-categories.ts",
     "test:rss-live": "tsx tools/test-rss-live-detection.ts",
     "test:rss-all": "tsx tools/test-rss-all-channels.ts",
+    "check:followers": "tsx tools/check-follower-counts.ts",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix"
   },

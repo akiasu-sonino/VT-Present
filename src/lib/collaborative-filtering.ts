@@ -185,10 +185,14 @@ export async function getCollaborativeRecommendations(
 
   // フォロワー数フィルター
   if (minFollowers !== undefined && minFollowers > 0) {
+    const beforeFilter = recommendedStreamers.length
     recommendedStreamers = recommendedStreamers.filter(s => s.follower_count >= minFollowers)
+    console.log(`[Collaborative] Follower filter (min: ${minFollowers}): ${beforeFilter} -> ${recommendedStreamers.length}`)
   }
   if (maxFollowers !== undefined && maxFollowers < Number.MAX_SAFE_INTEGER) {
+    const beforeFilter = recommendedStreamers.length
     recommendedStreamers = recommendedStreamers.filter(s => s.follower_count <= maxFollowers)
+    console.log(`[Collaborative] Follower filter (max: ${maxFollowers}): ${beforeFilter} -> ${recommendedStreamers.length}`)
   }
 
   // タグフィルター
@@ -344,10 +348,14 @@ export async function getCollaborativeRecommendationsWithDebug(
 
   // フォロワー数フィルター
   if (minFollowers !== undefined && minFollowers > 0) {
+    const beforeFilter = recommendedStreamers.length
     recommendedStreamers = recommendedStreamers.filter(s => s.follower_count >= minFollowers)
+    console.log(`[Collaborative] Follower filter (min: ${minFollowers}): ${beforeFilter} -> ${recommendedStreamers.length}`)
   }
   if (maxFollowers !== undefined && maxFollowers < Number.MAX_SAFE_INTEGER) {
+    const beforeFilter = recommendedStreamers.length
     recommendedStreamers = recommendedStreamers.filter(s => s.follower_count <= maxFollowers)
+    console.log(`[Collaborative] Follower filter (max: ${maxFollowers}): ${beforeFilter} -> ${recommendedStreamers.length}`)
   }
 
   // タグフィルター

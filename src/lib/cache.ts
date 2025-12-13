@@ -120,10 +120,14 @@ class DataCache {
 
     // フォロワー数フィルター
     if (minFollowers !== undefined && minFollowers > 0) {
+      const beforeFilter = available.length
       available = available.filter(s => s.follower_count >= minFollowers)
+      console.log(`[Cache] Follower filter (min: ${minFollowers}): ${beforeFilter} -> ${available.length}`)
     }
     if (maxFollowers !== undefined && maxFollowers < Number.MAX_SAFE_INTEGER) {
+      const beforeFilter = available.length
       available = available.filter(s => s.follower_count <= maxFollowers)
+      console.log(`[Cache] Follower filter (max: ${maxFollowers}): ${beforeFilter} -> ${available.length}`)
     }
 
     // タグでフィルタリング
