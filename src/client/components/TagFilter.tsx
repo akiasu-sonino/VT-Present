@@ -36,6 +36,7 @@ function TagFilter({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchTags()
@@ -90,6 +91,18 @@ function TagFilter({
     onTagsChange([])
   }
 
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(category)) {
+        next.delete(category)
+      } else {
+        next.add(category)
+      }
+      return next
+    })
+  }
+
   // 検索フィルタリング
   const filteredTags = allTags.filter(tag =>
     tag.toLowerCase().includes(searchQuery.toLowerCase())
@@ -107,6 +120,9 @@ function TagFilter({
 
   // 未選択タグのみを抽出
   const unselectedTags = filteredTags.filter(tag => !selectedTags.includes(tag))
+
+  // 検索中は全カテゴリを展開
+  const isSearching = searchQuery.trim().length > 0
 
   if (loading) {
     return (
@@ -200,27 +216,41 @@ function TagFilter({
             </div>
           )}
 
-          {/* カテゴリ別タグ一覧 */}
+          {/* カテゴリ別タグ一覧（アコーディオン形式） */}
           <div className="tags-by-category">
             {Object.entries(categorizedTags).map(([category, tags]) => {
               // 選択済みタグを除外
               const categoryUnselectedTags = tags.filter(tag => !selectedTags.includes(tag))
               if (categoryUnselectedTags.length === 0) return null
 
+              const isExpanded = isSearching || expandedCategories.has(category)
+              const tagCount = categoryUnselectedTags.length
+
               return (
                 <div key={category} className="tag-category">
-                  <div className="tag-category-header">{category}</div>
-                  <div className="tag-list">
-                    {categoryUnselectedTags.map(tag => (
-                      <button
-                        key={tag}
-                        className="tag-button"
-                        onClick={() => handleTagClick(tag)}
-                      >
-                        {tag}
-                      </button>
-                    ))}
+                  <div
+                    className="tag-category-header clickable"
+                    onClick={() => toggleCategory(category)}
+                  >
+                    <span className="category-title">
+                      {category}
+                      <span className="category-count">({tagCount})</span>
+                    </span>
+                    <span className="category-arrow">{isExpanded ? '▲' : '▼'}</span>
                   </div>
+                  {isExpanded && (
+                    <div className="tag-list">
+                      {categoryUnselectedTags.map(tag => (
+                        <button
+                          key={tag}
+                          className="tag-button"
+                          onClick={() => handleTagClick(tag)}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}
