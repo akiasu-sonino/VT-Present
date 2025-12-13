@@ -83,9 +83,23 @@ export async function getRandomStreamer(excludeIds: number[] = []): Promise<Stre
  * @param count 取得する配信者の数
  * @param excludeIds 除外する配信者IDのリスト
  * @param tags フィルタリングするタグ
+ * @param query フリーワード検索クエリ
+ * @param tagOperator タグ検索演算子（AND/OR）
+ * @param minFollowers 最小フォロワー数
+ * @param maxFollowers 最大フォロワー数
+ * @param liveChannelIds ライブ中のチャンネルIDリスト
  */
-export async function getRandomStreamers(count: number, excludeIds: number[] = [], tags: string[] = []): Promise<Streamer[]> {
-  return cache.getRandomStreamers(count, excludeIds, tags)
+export async function getRandomStreamers(
+  count: number,
+  excludeIds: number[] = [],
+  tags: string[] = [],
+  query?: string,
+  tagOperator: 'OR' | 'AND' = 'OR',
+  minFollowers?: number,
+  maxFollowers?: number,
+  liveChannelIds?: string[]
+): Promise<Streamer[]> {
+  return cache.getRandomStreamers(count, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers, liveChannelIds)
 }
 
 /**

@@ -82,6 +82,11 @@ class DataCache {
    * @param count 取得する配信者の数
    * @param excludeIds 除外する配信者IDのリスト
    * @param tags フィルタリングするタグ（指定された場合、いずれかのタグを含むストリーマーのみ）
+   * @param query フリーワード検索クエリ
+   * @param tagOperator タグ検索演算子（AND/OR）
+   * @param minFollowers 最小フォロワー数
+   * @param maxFollowers 最大フォロワー数
+   * @param liveChannelIds ライブ中のチャンネルIDリスト（指定された場合、これらのチャンネルのみを返す）
    */
   async getRandomStreamers(
     count: number,
@@ -90,10 +95,18 @@ class DataCache {
     query?: string,
     tagOperator: 'OR' | 'AND' = 'OR',
     minFollowers?: number,
-    maxFollowers?: number
+    maxFollowers?: number,
+    liveChannelIds?: string[]
   ): Promise<Streamer[]> {
     const streamers = await this.getStreamers()
     let available = streamers.filter(s => !excludeIds.includes(s.id))
+
+    // ライブ中のみフィルター（第一段階）
+    if (liveChannelIds !== undefined) {
+      available = available.filter(s =>
+        s.youtube_channel_id && liveChannelIds.includes(s.youtube_channel_id)
+      )
+    }
 
     // フリーワード検索（配信者名、説明）
     if (query && query.trim()) {

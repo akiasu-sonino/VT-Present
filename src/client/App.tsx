@@ -92,6 +92,10 @@ function App() {
       if (maxFollowers < Number.MAX_SAFE_INTEGER) {
         params.append('maxFollowers', maxFollowers.toString())
       }
+      // ライブ中のみフィルター（第一段階フィルタとして適用）
+      if (showLiveOnly) {
+        params.append('liveOnly', 'true')
+      }
 
       const response = await fetch(`/api/streams/random-multiple?${params.toString()}`)
       const data = await response.json()
@@ -108,7 +112,7 @@ function App() {
     } finally {
       setLoading(false)
     }
-  }, [selectedTags, tagOperator, searchQuery, minFollowers, maxFollowers])
+  }, [selectedTags, tagOperator, searchQuery, minFollowers, maxFollowers, showLiveOnly])
 
   useEffect(() => {
     fetchStreamers()
@@ -539,15 +543,7 @@ function App() {
 
             {!loading && !error && streamers.length > 0 && (
               <div className="streamers-grid">
-                {streamers
-                  .filter(streamer => {
-                    // ライブ中のみフィルタ
-                    if (showLiveOnly && streamer.youtube_channel_id) {
-                      return liveStatus[streamer.youtube_channel_id]?.isLive
-                    }
-                    return true
-                  })
-                  .map((streamer, index) => {
+                {streamers.map((streamer, index) => {
                     const liveInfo = streamer.youtube_channel_id
                       ? liveStatus[streamer.youtube_channel_id]
                       : undefined

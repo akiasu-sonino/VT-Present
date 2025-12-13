@@ -335,6 +335,9 @@ app.get('/streams/random-multiple', async (c) => {
     const minFollowers = minFollowersParam ? parseInt(minFollowersParam, 10) : undefined
     const maxFollowers = maxFollowersParam ? parseInt(maxFollowersParam, 10) : undefined
 
+    // ライブ中のみフィルター
+    const liveOnly = c.req.query('liveOnly') === 'true'
+
     // アルゴリズム選択（random / collaborative）
     const algorithm = c.req.query('algorithm') || 'random'
 
@@ -346,6 +349,22 @@ app.get('/streams/random-multiple', async (c) => {
 
     // アクション済み配信者IDを取得
     const excludeIds = await getActionedStreamerIds(user.id)
+
+    // ライブ中のみフィルターが有効な場合、ライブ中のチャンネルIDを取得
+    let liveChannelIds: string[] | undefined
+    if (liveOnly) {
+      const liveStatusMap = cache.getLiveStatus()
+      if (liveStatusMap) {
+        liveChannelIds = Array.from(liveStatusMap.entries())
+          .filter(([, status]) => status.isLive)
+          .map(([channelId]) => channelId)
+        console.log(`[LiveFilter] Found ${liveChannelIds.length} live channels`)
+      } else {
+        // ライブステータスがキャッシュにない場合は空配列を返す
+        console.log('[LiveFilter] No live status cache available')
+        liveChannelIds = []
+      }
+    }
 
     if (algorithm === 'collaborative') {
       // 協調フィルタリング
@@ -360,14 +379,15 @@ app.get('/streams/random-multiple', async (c) => {
           query,
           tagOperator,
           minFollowers,
-          maxFollowers
+          maxFollowers,
+          liveChannelIds
         )
         // レコメンデーションはユーザー固有なのでプライベートキャッシュ（5分）
         c.header('Cache-Control', 'private, max-age=300')
         return c.json({
           ...result,
           count: result.streamers.length,
-          filters: { tags, query, tagOperator, minFollowers, maxFollowers },
+          filters: { tags, query, tagOperator, minFollowers, maxFollowers, liveOnly },
           algorithm: 'collaborative'
         })
       } else {
@@ -381,26 +401,27 @@ app.get('/streams/random-multiple', async (c) => {
           query,
           tagOperator,
           minFollowers,
-          maxFollowers
+          maxFollowers,
+          liveChannelIds
         )
         // レコメンデーションはユーザー固有なのでプライベートキャッシュ（5分）
         c.header('Cache-Control', 'private, max-age=300')
         return c.json({
           streamers,
           count: streamers.length,
-          filters: { tags, query, tagOperator, minFollowers, maxFollowers },
+          filters: { tags, query, tagOperator, minFollowers, maxFollowers, liveOnly },
           algorithm: 'collaborative'
         })
       }
     } else {
       // 既存のランダムロジック
-      const streamers = await getRandomStreamers(count, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers)
+      const streamers = await getRandomStreamers(count, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers, liveChannelIds)
       // ストリーマーデータはユーザー固有なのでプライベートキャッシュ（5分）
       c.header('Cache-Control', 'private, max-age=300')
       return c.json({
         streamers,
         count: streamers.length,
-        filters: { tags, query, tagOperator, minFollowers, maxFollowers },
+        filters: { tags, query, tagOperator, minFollowers, maxFollowers, liveOnly },
         algorithm: 'random'
       })
     }

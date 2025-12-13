@@ -118,7 +118,8 @@ export async function getCollaborativeRecommendations(
   query?: string,
   tagOperator: 'OR' | 'AND' = 'OR',
   minFollowers?: number,
-  maxFollowers?: number
+  maxFollowers?: number,
+  liveChannelIds?: string[]
 ): Promise<Streamer[]> {
   // 類似ユーザーを取得
   const similarUsers = await findSimilarUsers(userId, 20)
@@ -126,7 +127,7 @@ export async function getCollaborativeRecommendations(
   // コールドスタート対応：類似ユーザーが見つからない場合はランダムにフォールバック
   if (similarUsers.length === 0) {
     console.log('[CollaborativeFiltering] No similar users found, falling back to random')
-    return cache.getRandomStreamers(limit, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers)
+    return cache.getRandomStreamers(limit, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers, liveChannelIds)
   }
 
   // 配信者ごとの推薦スコアを計算
@@ -164,6 +165,13 @@ export async function getCollaborativeRecommendations(
   let recommendedStreamers = sortedStreamerIds
     .map(id => allStreamers.find(s => s.id === id))
     .filter(s => s !== undefined) as Streamer[]
+
+  // ライブ中のみフィルター（第一段階）
+  if (liveChannelIds !== undefined) {
+    recommendedStreamers = recommendedStreamers.filter(s =>
+      s.youtube_channel_id && liveChannelIds.includes(s.youtube_channel_id)
+    )
+  }
 
   // フリーワード検索フィルター
   if (query && query.trim()) {
@@ -210,7 +218,8 @@ export async function getCollaborativeRecommendations(
     query,
     tagOperator,
     minFollowers,
-    maxFollowers
+    maxFollowers,
+    liveChannelIds
   )
 
   // シャッフルして返す
@@ -245,7 +254,8 @@ export async function getCollaborativeRecommendationsWithDebug(
   query?: string,
   tagOperator: 'OR' | 'AND' = 'OR',
   minFollowers?: number,
-  maxFollowers?: number
+  maxFollowers?: number,
+  liveChannelIds?: string[]
 ): Promise<{
   streamers: (Streamer & { _meta: { source: string; score?: number } })[]
   _debug: {
@@ -315,6 +325,13 @@ export async function getCollaborativeRecommendationsWithDebug(
     })
     .filter(s => s !== null) as (Streamer & { _score: number })[]
 
+  // ライブ中のみフィルター（第一段階）
+  if (liveChannelIds !== undefined) {
+    recommendedStreamers = recommendedStreamers.filter(s =>
+      s.youtube_channel_id && liveChannelIds.includes(s.youtube_channel_id)
+    )
+  }
+
   // フリーワード検索フィルター
   if (query && query.trim()) {
     const searchTerm = query.trim().toLowerCase()
@@ -360,7 +377,8 @@ export async function getCollaborativeRecommendationsWithDebug(
     query,
     tagOperator,
     minFollowers,
-    maxFollowers
+    maxFollowers,
+    liveChannelIds
   )
 
   // 結果を構築
