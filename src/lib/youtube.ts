@@ -128,8 +128,8 @@ async function fetchVideoLiveDetails(
       const data: YouTubeVideosResponse = await response.json()
       data.items?.forEach(item => {
         const liveDetails = item.liveStreamingDetails
-        // actualEndTimeがnullなら配信中
-        const isLive = liveDetails?.actualStartTime && liveDetails.actualEndTime === null
+        // actualStartTimeがあり、actualEndTimeがない（undefined/null）なら配信中
+        const isLive = !!liveDetails?.actualStartTime && !liveDetails.actualEndTime
 
         if (isLive && item.snippet?.channelId) {
           liveVideosMap.set(item.id, {
