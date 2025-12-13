@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 /**
  * YouTube Data API v3 ヘルパー
- * activities:list + channels:list でライブ配信を低コスト検知（1時間ポーリング）
+ * RSS + videos:list でライブ配信を低コスト検知（5分ポーリング）
  */
 
 export interface LiveStreamInfo {
@@ -14,147 +14,147 @@ export interface LiveStreamInfo {
   lastCheckedAt?: number
 }
 
-interface YouTubeActivitiesResponse {
-  items?: Array<{
-    snippet?: {
-      type?: string
-      title?: string
-      publishedAt?: string
-    }
-  }>
-}
-
-interface YouTubeChannelsResponse {
+interface YouTubeVideosResponse {
   items?: Array<{
     id: string
-    contentDetails?: {
-      relatedPlaylists?: {
-        liveStream?: string
-      }
+    snippet?: {
+      title?: string
+      channelId?: string
+    }
+    liveStreamingDetails?: {
+      actualStartTime?: string
+      actualEndTime?: string | null
+      concurrentViewers?: string
     }
   }>
 }
 
-const ACTIVITY_BATCH_SIZE = 10
-const CHANNEL_BATCH_SIZE = 50
+const RSS_MAX_VIDEOS = 3 // RSSから取得する最新動画数
+const VIDEOS_BATCH_SIZE = 50
 
 async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 /**
- * activities:list で直近アクティビティが live か確認（1 unit）
+ * RSSフィードから最新動画IDを取得（無料・レート制限なし）
+ * @param channelId YouTubeチャンネルID
+ * @returns 最新動画IDの配列（最大RSS_MAX_VIDEOS件）
  */
-async function fetchLatestLiveActivities(
-  channelIds: string[],
-  apiKey: string
-): Promise<Map<string, { title?: string }>> {
-  const liveActivityMap = new Map<string, { title?: string }>()
+async function fetchVideoIdsFromRSS(channelId: string): Promise<string[]> {
+  try {
+    const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
+    const response = await fetch(rssUrl)
 
-  for (let i = 0; i < channelIds.length; i += ACTIVITY_BATCH_SIZE) {
-    const batch = channelIds.slice(i, i + ACTIVITY_BATCH_SIZE)
-
-    const batchResults = await Promise.all(
-      batch.map(async channelId => {
-        try {
-          const url = new URL('https://www.googleapis.com/youtube/v3/activities')
-          url.searchParams.set('part', 'snippet')
-          url.searchParams.set('channelId', channelId)
-          url.searchParams.set('maxResults', '1')
-          url.searchParams.set('key', apiKey)
-
-          const response = await fetch(url.toString())
-          if (!response.ok) {
-            const errorText = await response.text()
-            console.error('[YouTube] activities:list error', {
-              channelId,
-              status: response.status,
-              error: errorText
-            })
-            return null
-          }
-
-          const data: YouTubeActivitiesResponse = await response.json()
-          const activity = data.items?.[0]
-          const isLive = activity?.snippet?.type === 'live'
-
-          if (isLive) {
-            return {
-              channelId,
-              title: activity?.snippet?.title
-            }
-          }
-        } catch (error) {
-          console.error('[YouTube] Failed to fetch activities', { channelId, error })
-        }
-        return null
+    if (!response.ok) {
+      console.error('[YouTube RSS] Failed to fetch RSS feed', {
+        channelId,
+        status: response.status
       })
-    )
-
-    batchResults.forEach(result => {
-      if (result) {
-        liveActivityMap.set(result.channelId, { title: result.title })
-      }
-    })
-
-    if (i + ACTIVITY_BATCH_SIZE < channelIds.length) {
-      await delay(100)
+      return []
     }
-  }
 
-  return liveActivityMap
+    const xmlText = await response.text()
+
+    // <yt:videoId>VIDEO_ID</yt:videoId> を正規表現で抽出
+    const videoIdMatches = xmlText.matchAll(/<yt:videoId>([^<]+)<\/yt:videoId>/g)
+    const videoIds: string[] = []
+
+    for (const match of videoIdMatches) {
+      videoIds.push(match[1])
+      if (videoIds.length >= RSS_MAX_VIDEOS) break
+    }
+
+    return videoIds
+  } catch (error) {
+    console.error('[YouTube RSS] Error fetching RSS feed', { channelId, error })
+    return []
+  }
 }
 
 /**
- * channels:list で liveStream プレイリストに現在のストリームIDがあるか確認（1 unit）
+ * 全チャンネルのRSSフィードから最新動画IDを取得
  */
-async function fetchLiveStreamIds(
-  channelIds: string[],
-  apiKey: string
-): Promise<Map<string, string>> {
-  const liveStreamMap = new Map<string, string>()
+async function fetchLatestVideoIdsFromRSS(
+  channelIds: string[]
+): Promise<Map<string, string[]>> {
+  const videoIdsMap = new Map<string, string[]>()
 
-  for (let i = 0; i < channelIds.length; i += CHANNEL_BATCH_SIZE) {
-    const batch = channelIds.slice(i, i + CHANNEL_BATCH_SIZE)
+  // RSSは並列で取得可能（無料・レート制限なし）
+  const results = await Promise.all(
+    channelIds.map(async channelId => {
+      const videoIds = await fetchVideoIdsFromRSS(channelId)
+      return { channelId, videoIds }
+    })
+  )
+
+  results.forEach(({ channelId, videoIds }) => {
+    if (videoIds.length > 0) {
+      videoIdsMap.set(channelId, videoIds)
+    }
+  })
+
+  return videoIdsMap
+}
+
+/**
+ * videos:list で動画のライブ配信状態を確認（1 unit/50 videos）
+ */
+async function fetchVideoLiveDetails(
+  videoIds: string[],
+  apiKey: string
+): Promise<Map<string, { channelId: string; title: string; viewerCount?: number; isLive: boolean }>> {
+  const liveVideosMap = new Map<string, { channelId: string; title: string; viewerCount?: number; isLive: boolean }>()
+
+  for (let i = 0; i < videoIds.length; i += VIDEOS_BATCH_SIZE) {
+    const batch = videoIds.slice(i, i + VIDEOS_BATCH_SIZE)
     try {
-      const url = new URL('https://www.googleapis.com/youtube/v3/channels')
-      url.searchParams.set('part', 'contentDetails')
+      const url = new URL('https://www.googleapis.com/youtube/v3/videos')
+      url.searchParams.set('part', 'snippet,liveStreamingDetails')
       url.searchParams.set('id', batch.join(','))
       url.searchParams.set('key', apiKey)
 
       const response = await fetch(url.toString())
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('[YouTube] channels:list error', {
-          channelIds: batch,
+        console.error('[YouTube] videos:list error', {
+          videoIds: batch,
           status: response.status,
           error: errorText
         })
         continue
       }
 
-      const data: YouTubeChannelsResponse = await response.json()
+      const data: YouTubeVideosResponse = await response.json()
       data.items?.forEach(item => {
-        const liveStreamId = item.contentDetails?.relatedPlaylists?.liveStream
-        if (liveStreamId) {
-          liveStreamMap.set(item.id, liveStreamId)
+        const liveDetails = item.liveStreamingDetails
+        // actualEndTimeがnullなら配信中
+        const isLive = liveDetails?.actualStartTime && liveDetails.actualEndTime === null
+
+        if (isLive && item.snippet?.channelId) {
+          liveVideosMap.set(item.id, {
+            channelId: item.snippet.channelId,
+            title: item.snippet.title || '',
+            viewerCount: liveDetails?.concurrentViewers ? parseInt(liveDetails.concurrentViewers, 10) : undefined,
+            isLive: true
+          })
         }
       })
     } catch (error) {
-      console.error('[YouTube] Failed to fetch channel details', { channelIds: batch, error })
+      console.error('[YouTube] Failed to fetch video details', { videoIds: batch, error })
     }
 
-    if (i + CHANNEL_BATCH_SIZE < channelIds.length) {
+    if (i + VIDEOS_BATCH_SIZE < videoIds.length) {
       await delay(100)
     }
   }
 
-  return liveStreamMap
+  return liveVideosMap
 }
 
 /**
  * チャンネルIDのリストからライブ配信状態を取得
- * activities:list で検知 → channels:list で確定（各1 unit）
+ * RSS で最新動画を取得 → videos:list でライブ配信状態を確認
  * @param channelIds YouTubeチャンネルIDの配列
  * @param apiKey YouTube Data API v3 APIキー
  * @returns ライブ配信情報の配列
@@ -167,31 +167,45 @@ export async function getLiveStreamStatus(
     return []
   }
 
-  console.log(`[YouTube] Hourly polling for ${channelIds.length} channels (activities -> channels)`)
+  console.log(`[YouTube] Polling for ${channelIds.length} channels (RSS -> videos)`)
 
-  // 1. activities:list で最新アクティビティが live か判定（1 unit）
-  const liveActivities = await fetchLatestLiveActivities(channelIds, apiKey)
-  const channelsToConfirm = Array.from(liveActivities.keys())
+  // 1. RSSフィードから各チャンネルの最新動画を取得（無料）
+  const videoIdsMap = await fetchLatestVideoIdsFromRSS(channelIds)
 
-  // 2. live アクティビティがあったチャンネルのみ channels:list で liveStream を確認（1 unit）
-  const confirmedLiveStreams = channelsToConfirm.length
-    ? await fetchLiveStreamIds(channelsToConfirm, apiKey)
-    : new Map<string, string>()
+  // 2. すべての動画IDをまとめる
+  const allVideoIds: string[] = []
+  videoIdsMap.forEach(videoIds => {
+    allVideoIds.push(...videoIds)
+  })
 
-  // 3. 結果構築（ステータスをキャッシュしやすい形にする）
+  console.log(`[YouTube] Fetched ${allVideoIds.length} videos from ${videoIdsMap.size} channels via RSS`)
+
+  // 3. videos:list でライブ配信状態を確認（1 unit/50 videos）
+  const liveVideosMap = allVideoIds.length > 0
+    ? await fetchVideoLiveDetails(allVideoIds, apiKey)
+    : new Map()
+
+  console.log(`[YouTube] Found ${liveVideosMap.size} live streams`)
+
+  // 4. チャンネルごとにライブ配信状態を構築
   const now = Date.now()
   return channelIds.map(channelId => {
-    const liveStreamId = confirmedLiveStreams.get(channelId)
-    const activityMeta = liveActivities.get(channelId)
+    // このチャンネルの動画IDリストを取得
+    const channelVideoIds = videoIdsMap.get(channelId) || []
 
-    if (liveStreamId) {
-      return {
-        channelId,
-        isLive: true,
-        videoId: liveStreamId,
-        liveStreamId,
-        title: activityMeta?.title,
-        lastCheckedAt: now
+    // ライブ配信中の動画を探す
+    for (const videoId of channelVideoIds) {
+      const liveVideo = liveVideosMap.get(videoId)
+      if (liveVideo && liveVideo.channelId === channelId) {
+        return {
+          channelId,
+          isLive: true,
+          videoId,
+          title: liveVideo.title,
+          viewerCount: liveVideo.viewerCount,
+          liveStreamId: videoId,
+          lastCheckedAt: now
+        }
       }
     }
 

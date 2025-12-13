@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, migrateOnboardingProgress } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, migrateOnboardingProgress } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { cache } from './lib/cache.js'
 import { writeCache } from './lib/write-cache.js'
@@ -83,13 +83,14 @@ app.get('/cache/stats', (c) => {
   })
 })
 
-// 全タグ一覧を取得
+// 全タグ一覧を取得（カテゴリ情報付き）
 app.get('/tags', async (c) => {
   try {
     const tags = await getAllTags()
+    const categories = await getTagCategories()
     // タグは頻繁に変わらないので1時間キャッシュ
     c.header('Cache-Control', 'public, max-age=3600')
-    return c.json({ tags })
+    return c.json({ tags, categories })
   } catch (error) {
     console.error('Error fetching tags:', error)
     return c.json({ error: 'Internal server error' }, 500)
@@ -412,6 +413,13 @@ app.get('/streams/random-multiple', async (c) => {
 // ライブ配信状態を取得
 app.get('/streamers/live-status', async (c) => {
   try {
+    // 開発環境ではライブ状態を取得しない
+    const isDevelopment = process.env.NODE_ENV !== 'production'
+    if (isDevelopment) {
+      console.log('[LiveStatus] Development mode - skipping live status fetch')
+      return c.json({ liveStatus: {} })
+    }
+
     const apiKey = process.env.YOUTUBE_API_KEY
 
     if (!apiKey) {
@@ -438,7 +446,7 @@ app.get('/streamers/live-status', async (c) => {
         return c.json({ liveStatus: {} })
       }
 
-      // RSS + Videos API方式でライブ状態を取得（クォータ大幅削減）
+      // RSS + Videos API方式でライブ状態を取得（低コスト）
       console.log(`[LiveStatus] Fetching live status for ${channelIds.length} channels (RSS + Videos API)`)
       try {
         const liveStatusList = await getLiveStreamStatus(channelIds, apiKey)
@@ -446,7 +454,7 @@ app.get('/streamers/live-status', async (c) => {
         // Map形式に変換
         liveStatusMap = new Map(liveStatusList.map(info => [info.channelId, info]))
 
-        // キャッシュに保存（12時間）
+        // キャッシュに保存（5分）
         cache.setLiveStatus(liveStatusMap)
       } catch (youtubeError) {
         console.error('[LiveStatus] YouTube API error:', youtubeError)

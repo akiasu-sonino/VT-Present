@@ -8,23 +8,6 @@ interface TagFilterProps {
   onTagOperatorChange?: (operator: 'OR' | 'AND') => void
 }
 
-// タグのカテゴリ定義
-const TAG_CATEGORIES: Record<string, string[]> = {
-  'ゲーム配信': ['ゲーム', 'FPS', 'RPG', 'アクション', '格ゲー', 'ホラゲー', 'マイクラ', 'APEX', 'Valorant'],
-  'エンタメ': ['歌ってみた', '雑談', 'ASMR', '料理', 'お絵描き', '踊ってみた', '楽器演奏'],
-  '学習・教養': ['プログラミング', '勉強', '英語', '読書', '解説'],
-  'その他': []  // マッチしないタグはその他に
-}
-
-function categorizeTag(tag: string): string {
-  for (const [category, tags] of Object.entries(TAG_CATEGORIES)) {
-    if (tags.includes(tag)) {
-      return category
-    }
-  }
-  return 'その他'
-}
-
 function TagFilter({
   selectedTags,
   onTagsChange,
@@ -32,6 +15,7 @@ function TagFilter({
   onTagOperatorChange
 }: TagFilterProps) {
   const [allTags, setAllTags] = useState<string[]>([])
+  const [tagCategories, setTagCategories] = useState<Record<string, string[]>>({})
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -58,7 +42,6 @@ function TagFilter({
   }, [isOpen])
 
   const fetchTags = async () => {
-    // (タグの取得ロジックは変更なし)
     try {
       setLoading(true)
       const response = await fetch('/api/tags')
@@ -66,6 +49,7 @@ function TagFilter({
 
       if (response.ok) {
         setAllTags(data.tags)
+        setTagCategories(data.categories || {})
         setError(null)
       } else {
         setError('タグの取得に失敗しました')
@@ -107,6 +91,16 @@ function TagFilter({
   const filteredTags = allTags.filter(tag =>
     tag.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // タグをカテゴリに分類するヘルパー関数
+  const categorizeTag = (tag: string): string => {
+    for (const [category, tags] of Object.entries(tagCategories)) {
+      if (tags.includes(tag)) {
+        return category
+      }
+    }
+    return 'その他'
+  }
 
   // カテゴリごとにタグを分類
   const categorizedTags: Record<string, string[]> = {}

@@ -7,6 +7,7 @@
  * - ユーザー情報：1時間キャッシュ
  * - ユーザープリファレンス（スコア付き）：1時間キャッシュ
  * - ユーザー類似度：1時間キャッシュ
+ * - ライブ配信状態：5分キャッシュ（RSS + Videos API）
  */
 
 import { sql } from '@vercel/postgres'
@@ -31,7 +32,7 @@ class DataCache {
   private userSimilarityCache: Map<string, CacheEntry<number>> = new Map()
 
   private readonly TTL = 60 * 60 * 1000 // 1時間（ミリ秒）
-  private readonly LIVE_STATUS_TTL = 60 * 60 * 1000 // 1時間（ミリ秒） - YouTubeライブステータスは1時間毎にポーリング
+  private readonly LIVE_STATUS_TTL = 5 * 60 * 1000 // 5分（ミリ秒） - YouTubeライブステータスは5分毎にポーリング
 
   /**
    * 全ストリーマーをキャッシュから取得
@@ -306,14 +307,14 @@ class DataCache {
   }
 
   /**
-   * ライブ配信状態をキャッシュに保存（1時間）
+   * ライブ配信状態をキャッシュに保存（5分）
    */
   setLiveStatus(liveStatusMap: Map<string, LiveStreamInfo>): void {
     this.liveStatusCache = {
       data: liveStatusMap,
       expiresAt: Date.now() + this.LIVE_STATUS_TTL
     }
-    console.log(`[Cache] Cached live status for ${liveStatusMap.size} channels (1 hour TTL)`)
+    console.log(`[Cache] Cached live status for ${liveStatusMap.size} channels (5 min TTL)`)
   }
 
   /**

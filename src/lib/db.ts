@@ -220,6 +220,35 @@ export async function getAllTags(): Promise<string[]> {
 }
 
 /**
+ * タグカテゴリ情報を取得
+ * タグをカテゴリ別にグループ化して返す
+ */
+export async function getTagCategories(): Promise<Record<string, string[]>> {
+  try {
+    const result = await sql`
+      SELECT category_name, tag_name
+      FROM tag_categories
+      ORDER BY category_name, sort_order, tag_name
+    `
+
+    const categories: Record<string, string[]> = {}
+
+    result.rows.forEach((row: { category_name: string; tag_name: string }) => {
+      if (!categories[row.category_name]) {
+        categories[row.category_name] = []
+      }
+      categories[row.category_name].push(row.tag_name)
+    })
+
+    return categories
+  } catch (error) {
+    console.error('Error fetching tag categories:', error)
+    // エラー時は空のオブジェクトを返す
+    return {}
+  }
+}
+
+/**
  * Google IDでユーザーを取得
  */
 export async function getUserByGoogleId(googleId: string): Promise<User | null> {

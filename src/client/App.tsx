@@ -132,12 +132,15 @@ function App() {
     }
   }, [selectedStreamer])
 
-  // ライブ状態を定期的に取得（1時間ごと）
-  // RSS + Videos API方式でクォータ大幅削減（200チャンネル×約0.3 units = 60 units/回）
+  // ライブ状態を定期的に取得（本番環境のみ5分ごと）
+  // RSS + Videos API方式で低コスト検知（RSS無料 + 1 unit/50動画）
   useEffect(() => {
-    fetchLiveStatus()
-    const interval = setInterval(fetchLiveStatus, 60 * 60 * 1000) // 1時間
-    return () => clearInterval(interval)
+    // 本番環境のみライブ状態を取得
+    if (import.meta.env.PROD) {
+      fetchLiveStatus()
+      const interval = setInterval(fetchLiveStatus, 5 * 60 * 1000) // 5分
+      return () => clearInterval(interval)
+    }
   }, [])
 
   const fetchCurrentUser = async () => {

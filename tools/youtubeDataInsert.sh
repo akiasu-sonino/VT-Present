@@ -147,23 +147,34 @@ insert_youtube_streamer() {
 
     AI_OUTPUT=$(echo "$payload" | GEMINI_API_KEY="$GEMINI_API_KEY" python3 tools/generate_description_tags.py)
     if [ -n "$AI_OUTPUT" ]; then
+        echo "✨ AI生成: 説明文とタグの生成に成功しました"
+        echo "---- APIレスポンス ----"
+        echo "$AI_OUTPUT"
+        echo "----------------------"
         ai_description=$(echo "$AI_OUTPUT" | jq -r '.description // ""' | tr '\n' ' ')
         ai_tags_json=$(echo "$AI_OUTPUT" | jq -c '.tags // []')
     else
+        echo "❌ AI生成: 説明文とタグの生成に失敗しました"
+        echo "---- APIレスポンス ----"
+        echo "$AI_OUTPUT"
+        echo "----------------------"
         ai_description=""
         ai_tags_json="[]"
     fi
 
     # SQL用にサニタイズ
     if [ -z "$ai_description" ]; then
+        echo "❌ 説明文が空です"
         description_sql=$name  # 既存の名前(単一引用符済み)を代用
     else
+        echo "✨ 説明文: $ai_description"
         escaped_desc=$(printf "%s" "$ai_description" | sed "s/'/''/g")
         description_sql="'${escaped_desc}'"
     fi
 
     # JSON配列 → PostgreSQL text[] の形式に変換
     if [ -z "$ai_tags_json" ] || [ "$ai_tags_json" = "[]" ]; then
+        echo "❌ タグが空です"
         tags_sql="'{}'"
     else
         pg_array=$(echo "$ai_tags_json" | jq -r 'map(gsub("\""; "\\\"")) | "{" + (join("\",\"") | "\""+.+"\"") + "}"')
@@ -241,7 +252,9 @@ ON CONFLICT (youtube_channel_id) DO UPDATE SET
     avatar_url = EXCLUDED.avatar_url,
     follower_count = EXCLUDED.follower_count,
     channel_url = EXCLUDED.channel_url,
-    video_id = EXCLUDED.video_id;
+    video_id = EXCLUDED.video_id,
+    description = EXCLUDED.description,
+    tags = EXCLUDED.tags;
 "
 
 # 実行
@@ -249,6 +262,12 @@ psql -c "$FINAL_QUERY" -d "$DB_CONN_STRING"
 
 if [ $? -eq 0 ]; then
     echo "✨ 成功: DBに一括挿入/更新完了！"
+    echo "---- FINAL_QUERY ----"
+    echo "$FINAL_QUERY"
+    echo "----------------------"
 else
     echo "❌ 失敗: DB挿入エラー"
+    echo "---- FINAL_QUERY ----"
+    echo "$FINAL_QUERY"
+    echo "----------------------"
 fi
