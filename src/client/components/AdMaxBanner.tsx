@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useMemo } from 'react';
 import '../styles/AdBanner.css';
 
 interface AdMaxBannerProps {
@@ -11,7 +11,7 @@ interface AdMaxBannerProps {
 /**
  * 忍者AdMax バナー広告コンポーネント
  *
- * document.write()問題を回避するため、iframe内で広告を読み込む
+ * document.write()問題を回避するため、iframe srcdoc属性を使用
  */
 export function AdMaxBanner({
   adId,
@@ -19,54 +19,41 @@ export function AdMaxBanner({
   width = 160,
   height = 600
 }: AdMaxBannerProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    if (!iframeRef.current) return;
-
-    const iframe = iframeRef.current;
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-
-    if (!iframeDoc) return;
-
-    // iframeのHTMLを生成
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-          }
-        </style>
-      </head>
-      <body>
-        <script src="https://adm.shinobi.jp/s/${adId}"></script>
-      </body>
-      </html>
-    `;
-
-    // iframeにHTMLを書き込む
-    iframeDoc.open();
-    iframeDoc.write(htmlContent);
-    iframeDoc.close();
-  }, [adId]);
+  // iframeのHTMLコンテンツを生成
+  const htmlContent = useMemo(() => `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <script src="https://adm.shinobi.jp/s/${adId}"></script>
+</body>
+</html>`, [adId]);
 
   return (
     <iframe
-      ref={iframeRef}
       className={`admax-banner ${className}`}
       width={width}
       height={height}
       frameBorder="0"
       scrolling="no"
+      sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+      srcDoc={htmlContent}
+      loading="lazy"
       style={{
         border: 'none',
         display: 'block',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        background: 'transparent'
       }}
       title="Advertisement"
     />
