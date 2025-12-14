@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, migrateOnboardingProgress, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { cache } from './lib/cache.js'
 import { writeCache } from './lib/write-cache.js'
@@ -340,13 +340,10 @@ app.get('/auth/callback/google', async (c) => {
     const anonymousId = getOrCreateAnonymousId(c)
     await linkAnonymousUserToUser(anonymousId, user.id)
 
-    // オンボーディング進捗を移行
-    await migrateOnboardingProgress(anonymousId, user.id)
-
     // セッションを作成
     setSessionCookie(c, user.id)
 
-    // オンボーディング状態をチェック
+    // オンボーディング状態をチェック（新規ユーザーには常に新しいオンボーディングを提供）
     const progress = await getOnboardingProgressByUserId(user.id)
     const needsOnboarding = !progress || !progress.tutorial_completed
 
@@ -392,8 +389,13 @@ app.post('/auth/mock', async (c) => {
     // セッションを作成
     setSessionCookie(c, user.id)
 
+    // オンボーディング状態をチェック（新規ユーザーには常に新しいオンボーディングを提供）
+    const progress = await getOnboardingProgressByUserId(user.id)
+    const needsOnboarding = !progress || !progress.tutorial_completed
+
     return c.json({
       success: true,
+      needsOnboarding,
       user: {
         id: user.id,
         email: user.email,

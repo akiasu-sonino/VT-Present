@@ -267,7 +267,12 @@ function App() {
         .then(data => {
           if (data.success && data.user) {
             setCurrentUser(data.user)
-            window.location.reload()
+            // オンボーディングが必要な場合はパラメータを追加してリロード
+            if (data.needsOnboarding) {
+              window.location.href = '/?onboarding=true'
+            } else {
+              window.location.reload()
+            }
           }
         })
         .catch(err => console.error('Error in mock login:', err))
