@@ -1,0 +1,30 @@
+/* アドマックス サイドバナー広告スタイル */
+
+.admax-sidebar-container {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+  max-width: 200px;
+}
+
+.admax-sidebar-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* モバイル表示では非表示にする（オプション） */
+@media (max-width: 768px) {
+  .admax-sidebar-container {
+    display: none;
+  }
+}
+
+/* タブレット以下では表示サイズを調整（オプション） */
+@media (max-width: 1024px) {
+  .admax-sidebar-container {
+    max-width: 150px;
+  }
+}
