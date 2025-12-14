@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, saveQuizResultsForUser, saveTagSelectionForUser, completeOnboardingForUser, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { cache } from './lib/cache.js'
 import { writeCache } from './lib/write-cache.js'
@@ -1197,15 +1197,22 @@ app.delete('/streamers/:id/tags/:tag', async (c) => {
 // オンボーディング状態取得
 app.get('/onboarding/status', async (c) => {
   try {
-    // 匿名ユーザーを取得
-    const { user } = await getOrCreateCurrentUser(c)
+    // まず認証済みユーザーをチェック
+    const sessionUserId = await getSessionUserId(c)
+    let progress = null
 
-    // オンボーディング進捗を取得
-    const progress = await getOnboardingProgress(user.id)
+    if (sessionUserId) {
+      // 認証済みユーザーの進捗を取得
+      progress = await getOnboardingProgressByUserId(sessionUserId)
+    } else {
+      // 匿名ユーザーの進捗を取得
+      const { user } = await getOrCreateCurrentUser(c)
+      progress = await getOnboardingProgress(user.id)
+    }
 
     return c.json({
       hasCompletedOnboarding: progress?.tutorial_completed || false,
-      currentStep: determineCurrentStep(progress),
+      currentStep: sessionUserId ? determineAuthenticatedUserStep(progress) : determineCurrentStep(progress),
       progress: progress || null,
       recommendedTags: progress?.quiz_results?.recommendedTags || []
     })
@@ -1218,8 +1225,16 @@ app.get('/onboarding/status', async (c) => {
 // 診断結果の保存
 app.post('/onboarding/quiz', async (c) => {
   try {
-    // 匿名ユーザーを取得
-    const { user } = await getOrCreateCurrentUser(c)
+    // 認証済みユーザーまたは匿名ユーザーを取得
+    const sessionUserId = await getSessionUserId(c)
+    let userId: number
+
+    if (sessionUserId) {
+      userId = sessionUserId
+    } else {
+      const { user } = await getOrCreateCurrentUser(c)
+      userId = user.id
+    }
 
     // リクエストボディから回答を取得
     const body = await c.req.json<{ answers: Array<{ questionId: number; answer: string }> }>()
@@ -1232,8 +1247,12 @@ app.post('/onboarding/quiz', async (c) => {
     // タグマッピングロジックで推奨タグを計算
     const recommendedTags = mapAnswersToTags(answers)
 
-    // 診断結果を保存
-    await saveQuizResults(user.id, { answers }, recommendedTags)
+    // 診断結果を保存（認証済みユーザーか匿名ユーザーかで関数を分ける）
+    if (sessionUserId) {
+      await saveQuizResultsForUser(userId, { answers }, recommendedTags)
+    } else {
+      await saveQuizResults(userId, { answers }, recommendedTags)
+    }
 
     return c.json({
       recommendedTags,
@@ -1248,8 +1267,16 @@ app.post('/onboarding/quiz', async (c) => {
 // タグ選択の保存
 app.post('/onboarding/tags', async (c) => {
   try {
-    // 匿名ユーザーを取得
-    const { user } = await getOrCreateCurrentUser(c)
+    // 認証済みユーザーまたは匿名ユーザーを取得
+    const sessionUserId = await getSessionUserId(c)
+    let userId: number
+
+    if (sessionUserId) {
+      userId = sessionUserId
+    } else {
+      const { user } = await getOrCreateCurrentUser(c)
+      userId = user.id
+    }
 
     // リクエストボディから選択タグを取得
     const body = await c.req.json<{ selectedTags: string[] }>()
@@ -1259,8 +1286,12 @@ app.post('/onboarding/tags', async (c) => {
       return c.json({ error: 'selectedTags is required' }, 400)
     }
 
-    // タグ選択を保存
-    await saveTagSelection(user.id, selectedTags)
+    // タグ選択を保存（認証済みユーザーか匿名ユーザーかで関数を分ける）
+    if (sessionUserId) {
+      await saveTagSelectionForUser(userId, selectedTags)
+    } else {
+      await saveTagSelection(userId, selectedTags)
+    }
 
     return c.json({
       success: true,
@@ -1275,11 +1306,21 @@ app.post('/onboarding/tags', async (c) => {
 // チュートリアル完了
 app.post('/onboarding/tutorial-complete', async (c) => {
   try {
-    // 匿名ユーザーを取得
-    const { user } = await getOrCreateCurrentUser(c)
+    // 認証済みユーザーまたは匿名ユーザーを取得
+    const sessionUserId = await getSessionUserId(c)
+    let userId: number
 
-    // チュートリアル完了を記録
-    const progress = await completeOnboarding(user.id)
+    if (sessionUserId) {
+      userId = sessionUserId
+    } else {
+      const { user } = await getOrCreateCurrentUser(c)
+      userId = user.id
+    }
+
+    // チュートリアル完了を記録（認証済みユーザーか匿名ユーザーかで関数を分ける）
+    const progress = sessionUserId
+      ? await completeOnboardingForUser(userId)
+      : await completeOnboarding(userId)
 
     return c.json({
       success: true,
