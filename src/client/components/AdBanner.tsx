@@ -25,22 +25,24 @@ export function AdBanner({
   fullWidth = true
 }: AdBannerProps) {
   useEffect(() => {
-    // AdSense スクリプトが存在しない場合は読み込む
-    if (adClient && !window.adsbygoogle) {
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js';
-      script.setAttribute('data-ad-client', adClient);
-      script.crossOrigin = 'anonymous';
-      document.head.appendChild(script);
-    }
-
-    // 広告を表示
+    // 広告を表示（スクリプトは index.html で既に読み込まれている前提）
     if (adClient && adSlot) {
       try {
-        const queue: AdsByGoogleQueue = window.adsbygoogle || [];
-        queue.push({});
-        window.adsbygoogle = queue;
+        // スクリプトが読み込まれるのを待つ
+        const initAd = () => {
+          if (window.adsbygoogle) {
+            const queue: AdsByGoogleQueue = window.adsbygoogle;
+            queue.push({});
+          }
+        };
+
+        // すでに読み込まれている場合はすぐに実行、そうでなければ少し待つ
+        if (window.adsbygoogle) {
+          initAd();
+        } else {
+          const timer = setTimeout(initAd, 100);
+          return () => clearTimeout(timer);
+        }
       } catch (e) {
         console.error('AdSense error:', e);
       }

@@ -442,7 +442,10 @@ function App() {
       </header>
 
       {/* 広告バナー - ヘッダー下 */}
-      <AdBanner />
+      <AdBanner
+        adClient="ca-pub-2390171962684817"
+        adSlot="YOUR_AD_SLOT_ID_HERE"
+      />
       {/*
       <div>
         <div className="recommended-devices-title">おすすめデバイス</div>
