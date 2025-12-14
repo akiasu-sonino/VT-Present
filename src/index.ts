@@ -882,7 +882,7 @@ app.post('/comments/:commentId/reactions', async (c) => {
       return c.json({ error: 'Invalid comment ID' }, 400)
     }
 
-    const body = await c.req.json<{ reactionType?: 'like' | 'helpful' | 'heart' | 'fire' }>().catch(() => ({}))
+    const body = await c.req.json<{ reactionType?: 'like' | 'helpful' | 'heart' | 'fire' }>().catch(() => ({ reactionType: undefined }))
     const reactionType = body.reactionType || 'like'
 
     const reaction = await addCommentReaction(commentId, userId, reactionType)
@@ -969,7 +969,7 @@ app.post('/share', async (c) => {
     }
 
     const shareLog = await createShareLog({
-      userId,
+      userId: userId ?? undefined,
       streamerId,
       commentId,
       platform,

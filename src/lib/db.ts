@@ -524,7 +524,7 @@ export async function saveTagSelection(
     const result = await sql<OnboardingProgress>`
       UPDATE user_onboarding_progress
       SET tags_selected = TRUE,
-          selected_tags = ${selectedTags}
+          selected_tags = ${sql.array(selectedTags)}
       WHERE anonymous_user_id = ${anonymousUserId}
       RETURNING *
     `
@@ -540,7 +540,7 @@ export async function saveTagSelection(
       VALUES (
         ${anonymousUserId},
         TRUE,
-        ${selectedTags}
+        ${sql.array(selectedTags)}
       )
       RETURNING *
     `
@@ -785,33 +785,53 @@ export async function getRecommendationRanking(
   sortBy: 'popular' | 'recent' = 'popular'
 ): Promise<any[]> {
   try {
-    const orderClause = sortBy === 'popular'
-      ? sql`ORDER BY c.reaction_count DESC, c.created_at DESC`
-      : sql`ORDER BY c.created_at DESC`
-
-    const result = await sql<any>`
-      SELECT
-        c.*,
-        json_build_object(
-          'id', u.id,
-          'name', u.name,
-          'email', u.email,
-          'avatar_url', u.avatar_url
-        ) as user,
-        json_build_object(
-          'id', s.id,
-          'name', s.name,
-          'avatar_url', s.avatar_url,
-          'platform', s.platform,
-          'follower_count', s.follower_count
-        ) as streamer
-      FROM comments c
-      INNER JOIN users u ON c.user_id = u.id
-      INNER JOIN streamers s ON c.streamer_id = s.id
-      WHERE c.comment_type = 'recommendation'
-      ${orderClause}
-      LIMIT ${limit}
-    `
+    const result = sortBy === 'popular'
+      ? await sql<any>`
+          SELECT
+            c.*,
+            json_build_object(
+              'id', u.id,
+              'name', u.name,
+              'email', u.email,
+              'avatar_url', u.avatar_url
+            ) as user,
+            json_build_object(
+              'id', s.id,
+              'name', s.name,
+              'avatar_url', s.avatar_url,
+              'platform', s.platform,
+              'follower_count', s.follower_count
+            ) as streamer
+          FROM comments c
+          INNER JOIN users u ON c.user_id = u.id
+          INNER JOIN streamers s ON c.streamer_id = s.id
+          WHERE c.comment_type = 'recommendation'
+          ORDER BY c.reaction_count DESC, c.created_at DESC
+          LIMIT ${limit}
+        `
+      : await sql<any>`
+          SELECT
+            c.*,
+            json_build_object(
+              'id', u.id,
+              'name', u.name,
+              'email', u.email,
+              'avatar_url', u.avatar_url
+            ) as user,
+            json_build_object(
+              'id', s.id,
+              'name', s.name,
+              'avatar_url', s.avatar_url,
+              'platform', s.platform,
+              'follower_count', s.follower_count
+            ) as streamer
+          FROM comments c
+          INNER JOIN users u ON c.user_id = u.id
+          INNER JOIN streamers s ON c.streamer_id = s.id
+          WHERE c.comment_type = 'recommendation'
+          ORDER BY c.created_at DESC
+          LIMIT ${limit}
+        `
 
     return result.rows
   } catch (error) {
