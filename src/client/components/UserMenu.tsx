@@ -126,7 +126,7 @@ function UserMenu({ onUserChange }: UserMenuProps) {
           onClick={isDevelopment ? handleMockLogin : handleGoogleLogin}
           disabled={loggingIn}
         >
-          {loggingIn ? 'ログイン中...' : '👤 ログイン'}
+          {loggingIn ? 'ログイン中...' : '👤 Googleログイン'}
         </button>
       </div>
     )

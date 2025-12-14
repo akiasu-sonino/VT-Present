@@ -55,8 +55,30 @@ export interface Comment {
   streamer_id: number
   user_id: number
   content: string
+  comment_type: 'normal' | 'recommendation'
+  reaction_count: number
   created_at: Date
   user?: User
+}
+
+export interface CommentReaction {
+  id: number
+  comment_id: number
+  user_id: number
+  reaction_type: 'like' | 'helpful' | 'heart' | 'fire'
+  created_at: Date
+}
+
+export interface ShareLog {
+  id: number
+  user_id: number | null
+  streamer_id: number
+  comment_id: number | null
+  platform: 'twitter' | 'facebook' | 'line' | 'other'
+  utm_source: string | null
+  utm_medium: string | null
+  utm_campaign: string | null
+  shared_at: Date
 }
 
 export interface ContactMessage {
@@ -582,4 +604,196 @@ export async function migrateOnboardingProgress(
     SET user_id = ${userId}
     WHERE anonymous_user_id = ${anonymousUser.id}
   `
+}
+
+// ========================================
+// コメントリアクション機能
+// ========================================
+
+/**
+ * コメントにリアクション（いいね）を追加
+ * @param commentId コメントID
+ * @param userId ユーザーID
+ * @param reactionType リアクションタイプ
+ */
+export async function addCommentReaction(
+  commentId: number,
+  userId: number,
+  reactionType: 'like' | 'helpful' | 'heart' | 'fire' = 'like'
+): Promise<CommentReaction | null> {
+  try {
+    const result = await sql<CommentReaction>`
+      INSERT INTO comment_reactions (comment_id, user_id, reaction_type)
+      VALUES (${commentId}, ${userId}, ${reactionType})
+      ON CONFLICT (comment_id, user_id)
+      DO UPDATE SET reaction_type = ${reactionType}
+      RETURNING *
+    `
+
+    // コメントキャッシュを無効化
+    cache.invalidateComments()
+
+    return result.rows[0] || null
+  } catch (error) {
+    console.error('Error adding comment reaction:', error)
+    return null
+  }
+}
+
+/**
+ * コメントからリアクションを削除
+ * @param commentId コメントID
+ * @param userId ユーザーID
+ */
+export async function removeCommentReaction(
+  commentId: number,
+  userId: number
+): Promise<boolean> {
+  try {
+    const result = await sql`
+      DELETE FROM comment_reactions
+      WHERE comment_id = ${commentId} AND user_id = ${userId}
+    `
+
+    // コメントキャッシュを無効化
+    cache.invalidateComments()
+
+    return (result.rowCount ?? 0) > 0
+  } catch (error) {
+    console.error('Error removing comment reaction:', error)
+    return false
+  }
+}
+
+/**
+ * 特定のコメントへのユーザーのリアクションを取得
+ * @param commentId コメントID
+ * @param userId ユーザーID
+ */
+export async function getUserReactionForComment(
+  commentId: number,
+  userId: number
+): Promise<CommentReaction | null> {
+  try {
+    const result = await sql<CommentReaction>`
+      SELECT *
+      FROM comment_reactions
+      WHERE comment_id = ${commentId} AND user_id = ${userId}
+    `
+
+    return result.rows[0] || null
+  } catch (error) {
+    console.error('Error getting user reaction:', error)
+    return null
+  }
+}
+
+/**
+ * おすすめランキングを取得
+ * @param limit 取得件数
+ * @param sortBy ソート基準（'popular': リアクション数順、'recent': 新着順）
+ */
+export async function getRecommendationRanking(
+  limit: number = 20,
+  sortBy: 'popular' | 'recent' = 'popular'
+): Promise<any[]> {
+  try {
+    const orderClause = sortBy === 'popular'
+      ? sql`ORDER BY c.reaction_count DESC, c.created_at DESC`
+      : sql`ORDER BY c.created_at DESC`
+
+    const result = await sql<any>`
+      SELECT
+        c.*,
+        json_build_object(
+          'id', u.id,
+          'name', u.name,
+          'email', u.email,
+          'avatar_url', u.avatar_url
+        ) as user,
+        json_build_object(
+          'id', s.id,
+          'name', s.name,
+          'avatar_url', s.avatar_url,
+          'platform', s.platform,
+          'follower_count', s.follower_count
+        ) as streamer
+      FROM comments c
+      INNER JOIN users u ON c.user_id = u.id
+      INNER JOIN streamers s ON c.streamer_id = s.id
+      WHERE c.comment_type = 'recommendation'
+      ${orderClause}
+      LIMIT ${limit}
+    `
+
+    return result.rows
+  } catch (error) {
+    console.error('Error getting recommendation ranking:', error)
+    return []
+  }
+}
+
+// ========================================
+// シェアログ機能
+// ========================================
+
+/**
+ * シェアログを記録
+ * @param params シェアログパラメータ
+ */
+export async function createShareLog(params: {
+  userId?: number
+  streamerId: number
+  commentId?: number
+  platform: 'twitter' | 'facebook' | 'line' | 'other'
+  utmSource?: string
+  utmMedium?: string
+  utmCampaign?: string
+}): Promise<ShareLog | null> {
+  try {
+    const result = await sql<ShareLog>`
+      INSERT INTO share_logs (
+        user_id,
+        streamer_id,
+        comment_id,
+        platform,
+        utm_source,
+        utm_medium,
+        utm_campaign
+      ) VALUES (
+        ${params.userId ?? null},
+        ${params.streamerId},
+        ${params.commentId ?? null},
+        ${params.platform},
+        ${params.utmSource ?? null},
+        ${params.utmMedium ?? null},
+        ${params.utmCampaign ?? null}
+      )
+      RETURNING *
+    `
+
+    return result.rows[0] || null
+  } catch (error) {
+    console.error('Error creating share log:', error)
+    return null
+  }
+}
+
+/**
+ * 配信者のシェア数を取得
+ * @param streamerId 配信者ID
+ */
+export async function getShareCountByStreamerId(streamerId: number): Promise<number> {
+  try {
+    const result = await sql<{ count: number }>`
+      SELECT COUNT(*) as count
+      FROM share_logs
+      WHERE streamer_id = ${streamerId}
+    `
+
+    return parseInt(String(result.rows[0]?.count ?? 0))
+  } catch (error) {
+    console.error('Error getting share count:', error)
+    return 0
+  }
 }

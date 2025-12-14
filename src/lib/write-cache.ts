@@ -12,6 +12,7 @@ interface PendingComment {
   streamerId: number
   userId: number
   content: string
+  commentType: 'normal' | 'recommendation'
   timestamp: number
 }
 
@@ -66,14 +67,20 @@ class WriteCache {
   /**
    * コメントをバッファに追加
    */
-  addComment(streamerId: number, userId: number, content: string): void {
+  addComment(
+    streamerId: number,
+    userId: number,
+    content: string,
+    commentType: 'normal' | 'recommendation' = 'normal'
+  ): void {
     this.commentBuffer.push({
       streamerId,
       userId,
       content,
+      commentType,
       timestamp: Date.now()
     })
-    console.log(`[WriteCache] Comment added to buffer (total: ${this.commentBuffer.length})`)
+    console.log(`[WriteCache] Comment (${commentType}) added to buffer (total: ${this.commentBuffer.length})`)
   }
 
   /**
@@ -137,15 +144,15 @@ class WriteCache {
 
     // VALUES句を動的に生成
     const values = comments.map((comment, index) => {
-      const base = index * 3
-      return `($${base + 1}, $${base + 2}, $${base + 3})`
+      const base = index * 4
+      return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`
     }).join(', ')
 
     // パラメータ配列を生成
-    const params = comments.flatMap(c => [c.streamerId, c.userId, c.content])
+    const params = comments.flatMap(c => [c.streamerId, c.userId, c.content, c.commentType])
 
     const query = `
-      INSERT INTO comments (streamer_id, user_id, content)
+      INSERT INTO comments (streamer_id, user_id, content, comment_type)
       VALUES ${values}
     `
 

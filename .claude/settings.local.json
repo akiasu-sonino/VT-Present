@@ -4,7 +4,8 @@
       "Bash(npm install)",
       "Bash(npm view:*)",
       "Bash(npm install:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []

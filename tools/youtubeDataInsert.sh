@@ -44,6 +44,61 @@ fetch_json_or_error() {
 }
 
 # =================================================================
+# タグ正規化関数: tag_normalizationテーブルを使ってタグを正規化
+# =================================================================
+normalize_tags() {
+    local tags_json="$1"
+
+    # 空配列の場合はそのまま返す
+    if [ -z "$tags_json" ] || [ "$tags_json" = "[]" ]; then
+        echo "[]"
+        return 0
+    fi
+
+    # タグ配列から各タグを抽出してSQLに渡す
+    local tags_list=$(echo "$tags_json" | jq -r '.[]' | sed "s/'/''/g")
+
+    if [ -z "$tags_list" ]; then
+        echo "[]"
+        return 0
+    fi
+
+    # 一時テーブルにタグを挿入し、tag_normalizationテーブルと結合して正規化
+    local normalized_result=$(psql -t -d "$DB_CONN_STRING" <<EOF
+WITH input_tags AS (
+    SELECT unnest(ARRAY[$(echo "$tags_json" | jq -r 'map("'''" + . + "'''") | join(",")')]) AS tag
+),
+normalized AS (
+    SELECT DISTINCT
+        CASE
+            WHEN tn.normalized_tag IS NOT NULL THEN tn.normalized_tag
+            WHEN tn.alias IS NOT NULL AND tn.normalized_tag IS NULL THEN NULL
+            ELSE it.tag
+        END AS cleaned_tag
+    FROM input_tags it
+    LEFT JOIN tag_normalization tn ON tn.alias = it.tag
+    WHERE CASE
+            WHEN tn.normalized_tag IS NOT NULL THEN tn.normalized_tag
+            WHEN tn.alias IS NOT NULL AND tn.normalized_tag IS NULL THEN NULL
+            ELSE it.tag
+        END IS NOT NULL
+)
+SELECT json_agg(cleaned_tag)::text
+FROM normalized;
+EOF
+)
+
+    # 結果が空の場合は空配列を返す
+    if [ -z "$normalized_result" ] || [ "$normalized_result" = "null" ]; then
+        echo "[]"
+    else
+        echo "$normalized_result" | tr -d ' 	
+'
+    fi
+}
+
+
+# =================================================================
 # 個別 YouTuber 1人分の情報を API 取得し、INSERT ROW を組み立てる
 # =================================================================
 insert_youtube_streamer() {
@@ -153,6 +208,23 @@ insert_youtube_streamer() {
         echo "----------------------"
         ai_description=$(echo "$AI_OUTPUT" | jq -r '.description // ""' | tr '\n' ' ')
         ai_tags_json=$(echo "$AI_OUTPUT" | jq -c '.tags // []')
+
+        # =================================================================
+        # タグの正規化処理
+        # =================================================================
+        echo "▶️ タグの正規化処理中..."
+        echo "  正規化前: $ai_tags_json"
+
+        normalized_tags_json=$(normalize_tags "$ai_tags_json")
+
+        if [ -n "$normalized_tags_json" ] && [ "$normalized_tags_json" != "[]" ]; then
+            echo "✨ タグ正規化完了"
+            echo "  正規化後: $normalized_tags_json"
+            ai_tags_json="$normalized_tags_json"
+        else
+            echo "⚠️ タグ正規化結果が空です。元のタグを使用します"
+        fi
+
     else
         echo "❌ AI生成: 説明文とタグの生成に失敗しました"
         echo "---- APIレスポンス ----"

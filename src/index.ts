@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, migrateOnboardingProgress } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, migrateOnboardingProgress, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { cache } from './lib/cache.js'
 import { writeCache } from './lib/write-cache.js'
@@ -20,6 +20,136 @@ const __dirname = dirname(__filename)
 
 // メインアプリケーション
 const mainApp = new Hono()
+
+// ========================================
+// OGP生成ヘルパー関数
+// ========================================
+
+/**
+ * 配信者ページ用の動的OGPを含むHTMLを生成
+ */
+function generateStreamerPageHTML(
+  streamer: any,
+  recommendationComment?: any,
+  baseUrl: string = 'https://www.oshistream.jp'
+): string {
+  const title = recommendationComment
+    ? `${streamer.name}をおすすめ！ - OshiStream`
+    : `${streamer.name} - OshiStream`
+
+  const description = recommendationComment
+    ? recommendationComment.content.substring(0, 150)
+    : streamer.description?.substring(0, 150) || `${streamer.name}の配信をチェック！`
+
+  const ogImage = streamer.avatar_url || `${baseUrl}/ogp.png`
+  const pageUrl = recommendationComment
+    ? `${baseUrl}/streamer/${streamer.id}?comment=${recommendationComment.id}`
+    : `${baseUrl}/streamer/${streamer.id}`
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+
+  <!-- OGP Meta Tags -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="${pageUrl}">
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="${description}">
+  <meta property="og:image" content="${ogImage}">
+  <meta property="og:site_name" content="OshiStream">
+  <meta property="og:locale" content="ja_JP">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:description" content="${description}">
+  <meta name="twitter:image" content="${ogImage}">
+
+  <!-- Redirect to React app -->
+  <meta http-equiv="refresh" content="0;url=/?streamer=${streamer.id}${recommendationComment ? `&comment=${recommendationComment.id}` : ''}">
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .loading {
+      text-align: center;
+    }
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 4px solid white;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>読み込み中...</p>
+    <p><a href="/?streamer=${streamer.id}" style="color: white;">クリックして続行</a></p>
+  </div>
+</body>
+</html>`
+}
+
+// ========================================
+// 個別配信者ページ（動的OGP生成）
+// ========================================
+
+mainApp.get('/streamer/:id', async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'))
+    const commentId = c.req.query('comment')
+
+    if (isNaN(id)) {
+      return c.text('Invalid streamer ID', 400)
+    }
+
+    const streamer = await getStreamerById(id)
+
+    if (!streamer) {
+      return c.text('Streamer not found', 404)
+    }
+
+    // おすすめコメントIDが指定されている場合、そのコメントを取得
+    let recommendationComment = null
+    if (commentId) {
+      const comments = await getCommentsByStreamerId(id)
+      recommendationComment = comments.find(
+        (c: any) => c.id === parseInt(commentId) && c.comment_type === 'recommendation'
+      )
+    }
+
+    const baseUrl = `${c.req.header('x-forwarded-proto') || 'https'}://${c.req.header('host')}`
+    const html = generateStreamerPageHTML(streamer, recommendationComment, baseUrl)
+
+    // TwitterクローラーやOGPクローラーがキャッシュしやすいように
+    c.header('Cache-Control', 'public, max-age=3600')
+
+    return c.html(html)
+  } catch (error) {
+    console.error('Error loading streamer page:', error)
+    return c.text('Internal server error', 500)
+  }
+})
 
 // 静的ページルート
 mainApp.get('/terms', async (c) => {
@@ -680,8 +810,12 @@ app.post('/comments', async (c) => {
       return c.json({ error: 'Authentication required' }, 401)
     }
 
-    const body = await c.req.json<{ streamerId: number; content: string }>()
-    const { streamerId, content } = body
+    const body = await c.req.json<{
+      streamerId: number
+      content: string
+      commentType?: 'normal' | 'recommendation'
+    }>()
+    const { streamerId, content, commentType = 'normal' } = body
 
     if (!streamerId || !content) {
       return c.json({ error: 'streamerId and content are required' }, 400)
@@ -696,17 +830,18 @@ app.post('/comments', async (c) => {
     }
 
     // キャッシュに追加（定期的にDBに書き込まれる）
-    writeCache.addComment(streamerId, userId, content.trim())
+    writeCache.addComment(streamerId, userId, content.trim(), commentType)
 
     // 監査ログを記録（荒らし対策）
     const ipAddress = c.req.header('x-forwarded-for') || c.req.header('x-real-ip')
     const userAgent = c.req.header('user-agent')
     await createAuditLog({
       userId,
-      action: 'comment_posted',
+      action: commentType === 'recommendation' ? 'recommendation_posted' : 'comment_posted',
       resourceType: 'comment',
       streamerId,
       details: {
+        commentType,
         contentLength: content.trim().length,
         contentPreview: content.trim().substring(0, 100)
       },
@@ -716,10 +851,165 @@ app.post('/comments', async (c) => {
 
     return c.json({
       success: true,
-      message: 'Comment will be posted shortly'
+      message: commentType === 'recommendation'
+        ? 'Recommendation will be posted shortly'
+        : 'Comment will be posted shortly'
     })
   } catch (error) {
     console.error('Error posting comment:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// ========================================
+// コメントリアクション機能（ログインユーザー限定）
+// ========================================
+
+// コメントにリアクション（いいね）を追加
+app.post('/comments/:commentId/reactions', async (c) => {
+  try {
+    const userId = getSessionUserId(c)
+
+    if (!userId) {
+      return c.json({ error: 'Authentication required' }, 401)
+    }
+
+    const commentId = parseInt(c.req.param('commentId'))
+
+    if (isNaN(commentId)) {
+      return c.json({ error: 'Invalid comment ID' }, 400)
+    }
+
+    const body = await c.req.json<{ reactionType?: 'like' | 'helpful' | 'heart' | 'fire' }>().catch(() => ({}))
+    const reactionType = body.reactionType || 'like'
+
+    const reaction = await addCommentReaction(commentId, userId, reactionType)
+
+    if (!reaction) {
+      return c.json({ error: 'Failed to add reaction' }, 500)
+    }
+
+    return c.json({ success: true, reaction })
+  } catch (error) {
+    console.error('Error adding reaction:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// コメントからリアクションを削除
+app.delete('/comments/:commentId/reactions', async (c) => {
+  try {
+    const userId = getSessionUserId(c)
+
+    if (!userId) {
+      return c.json({ error: 'Authentication required' }, 401)
+    }
+
+    const commentId = parseInt(c.req.param('commentId'))
+
+    if (isNaN(commentId)) {
+      return c.json({ error: 'Invalid comment ID' }, 400)
+    }
+
+    const success = await removeCommentReaction(commentId, userId)
+
+    return c.json({ success })
+  } catch (error) {
+    console.error('Error removing reaction:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// ========================================
+// おすすめランキング機能
+// ========================================
+
+// おすすめランキングを取得
+app.get('/recommendations/ranking', async (c) => {
+  try {
+    const limitParam = c.req.query('limit')
+    const sortBy = c.req.query('sortBy') as 'popular' | 'recent' | undefined
+
+    const limit = limitParam ? parseInt(limitParam) : 20
+    const ranking = await getRecommendationRanking(limit, sortBy || 'popular')
+
+    return c.json(ranking, 200, {
+      'Cache-Control': 'public, max-age=300' // 5分キャッシュ
+    })
+  } catch (error) {
+    console.error('Error getting recommendation ranking:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// ========================================
+// シェア機能
+// ========================================
+
+// シェアログを記録
+app.post('/share', async (c) => {
+  try {
+    const userId = getSessionUserId(c) // オプショナル（未ログインでもシェア可）
+
+    const body = await c.req.json<{
+      streamerId: number
+      commentId?: number
+      platform: 'twitter' | 'facebook' | 'line' | 'other'
+      utmSource?: string
+      utmMedium?: string
+      utmCampaign?: string
+    }>()
+
+    const { streamerId, commentId, platform, utmSource, utmMedium, utmCampaign } = body
+
+    if (!streamerId || !platform) {
+      return c.json({ error: 'streamerId and platform are required' }, 400)
+    }
+
+    const shareLog = await createShareLog({
+      userId,
+      streamerId,
+      commentId,
+      platform,
+      utmSource,
+      utmMedium,
+      utmCampaign
+    })
+
+    return c.json({ success: true, shareLog })
+  } catch (error) {
+    console.error('Error creating share log:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// 配信者のシェア用データを取得（OGP生成用）
+app.get('/streamers/:id/share-data', async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'))
+
+    if (isNaN(id)) {
+      return c.json({ error: 'Invalid streamer ID' }, 400)
+    }
+
+    const streamer = await getStreamerById(id)
+
+    if (!streamer) {
+      return c.json({ error: 'Streamer not found' }, 404)
+    }
+
+    const shareCount = await getShareCountByStreamerId(id)
+
+    return c.json({
+      streamer,
+      shareCount,
+      shareUrl: `${c.req.url.split('/api')[0]}/streamer/${id}`,
+      ogImage: streamer.avatar_url || `${c.req.url.split('/api')[0]}/ogp.png`
+    }, 200, {
+      'Cache-Control': 'public, max-age=300' // 5分キャッシュ
+    })
+  } catch (error) {
+    console.error('Error getting share data:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })

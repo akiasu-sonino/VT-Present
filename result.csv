@@ -207,4 +207,4 @@ INSERT INTO tag_normalization (alias, normalized_tag, status) VALUES
 ('楽しい', NULL, 'remove'),
 ('楽しむ', NULL, 'remove'),
 ('楽しい配信', NULL, 'remove'),
-('気まぐれ, NULL, 'remove')
+('気まぐれ', NULL, 'remove');

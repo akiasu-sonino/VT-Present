@@ -536,11 +536,16 @@ class DataCache {
   /**
    * コメントキャッシュを無効化
    * コメント投稿時に呼び出す
-   * @param streamerId 配信者ID
+   * @param streamerId 配信者ID（省略時は全コメントキャッシュを無効化）
    */
-  invalidateComments(streamerId: number): void {
-    console.log(`[Cache] Invalidating comments cache for streamer ${streamerId}`)
-    this.commentsCache.delete(streamerId)
+  invalidateComments(streamerId?: number): void {
+    if (streamerId !== undefined) {
+      console.log(`[Cache] Invalidating comments cache for streamer ${streamerId}`)
+      this.commentsCache.delete(streamerId)
+    } else {
+      console.log('[Cache] Invalidating all comments cache')
+      this.commentsCache.clear()
+    }
   }
 
   /**
