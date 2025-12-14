@@ -4,46 +4,43 @@ import '../styles/AdBannerAdmax.css';
 /**
  * アドマックス（Admax）サイドバナー広告コンポーネント
  * 画面の左端に固定表示される
+ *
+ * 参考: https://adm.shinobi.jp/
  */
 export function AdBannerAdmax() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const scriptLoadedRef = useRef(false);
+  const scriptAddedRef = useRef(false);
 
   useEffect(() => {
-    // 既に読み込み済みの場合はスキップ
-    if (scriptLoadedRef.current) {
-      console.log('Admax script already loaded');
+    // 既に追加済みの場合はスキップ
+    if (scriptAddedRef.current) {
       return;
     }
 
-    console.log('Loading Admax script...');
+    const s = document.createElement('script');
+    s.src = 'https://adm.shinobi.jp/s/629a281b9d6e718ee7676471ecea6b17';
+    s.async = true;
 
-    // アドマックススクリプトを動的に読み込む
-    const script = document.createElement('script');
-    script.src = 'https://adm.shinobi.jp/s/629a281b9d6e718ee7676471ecea6b17';
-    script.async = true;
-
-    script.onload = () => {
-      console.log('Admax script loaded successfully');
-      scriptLoadedRef.current = true;
+    s.onload = () => {
+      console.log('[Admax] Script loaded successfully');
+      scriptAddedRef.current = true;
     };
 
-    script.onerror = () => {
-      console.error('Failed to load Admax script');
+    s.onerror = () => {
+      console.error('[Admax] Failed to load script');
     };
 
-    // スクリプトをコンテナに追加
+    // コンテナ内に追加する方法を試す
     if (containerRef.current) {
-      containerRef.current.appendChild(script);
-      console.log('Admax script appended to container');
+      containerRef.current.appendChild(s);
+      console.log('[Admax] Script appended to container');
     }
 
     // クリーンアップ
     return () => {
-      if (containerRef.current && script.parentNode === containerRef.current) {
-        containerRef.current.removeChild(script);
-        scriptLoadedRef.current = false;
-        console.log('Admax script removed from container');
+      if (s.parentNode) {
+        s.parentNode.removeChild(s);
+        scriptAddedRef.current = false;
       }
     };
   }, []);
@@ -51,7 +48,7 @@ export function AdBannerAdmax() {
   return (
     <div className="admax-sidebar-container">
       <div ref={containerRef} className="admax-sidebar-content">
-        {/* アドマックススクリプトがここに挿入されます */}
+        {/* 広告がここに表示されます */}
       </div>
     </div>
   );
