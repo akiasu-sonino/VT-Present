@@ -36,6 +36,35 @@
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2390171962684817"
      crossorigin="anonymous"></script>
 
+  <!-- アドマックス広告用スタイル -->
+  <style>
+    .admax-sidebar-fixed {
+      position: fixed;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 9999;
+      width: 160px;
+      min-height: 600px;
+      pointer-events: auto;
+    }
+
+    /* モバイル表示では非表示 */
+    @media (max-width: 768px) {
+      .admax-sidebar-fixed {
+        display: none;
+      }
+    }
+
+    /* タブレット以下では表示サイズを調整 */
+    @media (max-width: 1024px) {
+      .admax-sidebar-fixed {
+        width: 120px;
+        min-height: 400px;
+      }
+    }
+  </style>
+
   <!-- Structured Data (JSON-LD) -->
   <script type="application/ld+json">
   {
@@ -73,6 +102,11 @@
 </head>
 
 <body>
+  <!-- アドマックス広告 - 左側固定表示 -->
+  <div id="admax-sidebar-ad" class="admax-sidebar-fixed">
+    <script src="https://adm.shinobi.jp/s/629a281b9d6e718ee7676471ecea6b17"></script>
+  </div>
+
   <div id="root"></div>
   <script type="module" src="/src/client/main.tsx"></script>
 </body>

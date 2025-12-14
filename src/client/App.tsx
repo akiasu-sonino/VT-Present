@@ -7,7 +7,6 @@ import FollowerFilter from './components/FollowerFilter'
 import FilterPresets, { type FilterPreset } from './components/FilterPresets'
 import UserMenu from './components/UserMenu'
 import { AdBanner } from './components/AdBanner'
-import { AdBannerAdmax } from './components/AdBannerAdmax'
 import OnboardingWizard from './components/onboarding/OnboardingWizard'
 import LoginPromptModal from './components/onboarding/LoginPromptModal'
 import './styles/App.css'
@@ -413,9 +412,6 @@ function App() {
 
   return (
     <div className="app">
-      {/* アドマックス 左側固定広告 */}
-      <AdBannerAdmax />
-
       <header className="header">
         <div className="header-top">
           <div className="header-branding">
