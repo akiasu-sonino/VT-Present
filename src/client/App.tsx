@@ -121,6 +121,7 @@ function App() {
   useEffect(() => {
     fetchCurrentUser()
     checkOnboarding()
+    checkAnonymousModal()
   }, [])
 
   // currentUserが変更されたらオンボーディングをチェック
@@ -179,6 +180,20 @@ function App() {
     }
   }
 
+  const checkAnonymousModal = async () => {
+    // 匿名ユーザー向けログイン誘導モーダル表示判定
+    try {
+      const response = await fetch('/api/onboarding/should-show-anonymous-modal')
+      const data = await response.json()
+
+      if (data.shouldShow) {
+        setShowLoginPrompt(true)
+      }
+    } catch (err) {
+      console.error('Error checking anonymous modal status:', err)
+    }
+  }
+
   const checkOnboardingAfterLogin = async () => {
     // ログイン後のオンボーディングチェック
     const urlParams = new URLSearchParams(window.location.search)
@@ -219,8 +234,16 @@ function App() {
     window.history.replaceState({}, '', '/')
   }
 
-  const handleLoginPromptLogin = () => {
+  const handleLoginPromptLogin = async () => {
     setShowLoginPrompt(false)
+
+    // モーダル表示済みフラグを設定
+    try {
+      await fetch('/api/onboarding/mark-anonymous-modal-shown', { method: 'POST' })
+    } catch (err) {
+      console.error('Error marking anonymous modal as shown:', err)
+    }
+
     // ログインページへリダイレクト
     const isDevelopment = import.meta.env.DEV
     if (isDevelopment) {
@@ -240,8 +263,15 @@ function App() {
     }
   }
 
-  const handleLoginPromptContinue = () => {
+  const handleLoginPromptContinue = async () => {
     setShowLoginPrompt(false)
+
+    // スキップフラグを設定
+    try {
+      await fetch('/api/onboarding/skip-anonymous-modal', { method: 'POST' })
+    } catch (err) {
+      console.error('Error skipping anonymous modal:', err)
+    }
   }
 
   const fetchLiveStatus = async () => {

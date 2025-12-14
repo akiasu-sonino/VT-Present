@@ -426,6 +426,8 @@ export interface OnboardingProgress {
   selected_tags: string[]
   started_at: Date
   completed_at: Date | null
+  anonymous_tutorial_shown: boolean
+  anonymous_tutorial_skipped: boolean
 }
 
 /**
@@ -604,6 +606,91 @@ export async function migrateOnboardingProgress(
     SET user_id = ${userId}
     WHERE anonymous_user_id = ${anonymousUser.id}
   `
+}
+
+/**
+ * 匿名ユーザー向けログイン誘導モーダルを表示済みとしてマーク
+ * @param anonymousUserId 匿名ユーザーID
+ */
+export async function markAnonymousModalShown(
+  anonymousUserId: number
+): Promise<void> {
+  // 既存の進捗を確認
+  const existing = await getOnboardingProgress(anonymousUserId)
+
+  if (existing) {
+    // 既存レコードを更新
+    await sql`
+      UPDATE user_onboarding_progress
+      SET anonymous_tutorial_shown = TRUE
+      WHERE anonymous_user_id = ${anonymousUserId}
+    `
+  } else {
+    // 新規レコードを作成
+    await sql`
+      INSERT INTO user_onboarding_progress (
+        anonymous_user_id,
+        quiz_completed,
+        tags_selected,
+        tutorial_completed,
+        selected_tags,
+        anonymous_tutorial_shown,
+        anonymous_tutorial_skipped
+      )
+      VALUES (
+        ${anonymousUserId},
+        FALSE,
+        FALSE,
+        FALSE,
+        ARRAY[]::TEXT[],
+        TRUE,
+        FALSE
+      )
+    `
+  }
+}
+
+/**
+ * 匿名ユーザー向けログイン誘導モーダルをスキップとしてマーク
+ * @param anonymousUserId 匿名ユーザーID
+ */
+export async function markAnonymousModalSkipped(
+  anonymousUserId: number
+): Promise<void> {
+  // 既存の進捗を確認
+  const existing = await getOnboardingProgress(anonymousUserId)
+
+  if (existing) {
+    // 既存レコードを更新
+    await sql`
+      UPDATE user_onboarding_progress
+      SET anonymous_tutorial_shown = TRUE,
+          anonymous_tutorial_skipped = TRUE
+      WHERE anonymous_user_id = ${anonymousUserId}
+    `
+  } else {
+    // 新規レコードを作成
+    await sql`
+      INSERT INTO user_onboarding_progress (
+        anonymous_user_id,
+        quiz_completed,
+        tags_selected,
+        tutorial_completed,
+        selected_tags,
+        anonymous_tutorial_shown,
+        anonymous_tutorial_skipped
+      )
+      VALUES (
+        ${anonymousUserId},
+        FALSE,
+        FALSE,
+        FALSE,
+        ARRAY[]::TEXT[],
+        TRUE,
+        TRUE
+      )
+    `
+  }
 }
 
 // ========================================

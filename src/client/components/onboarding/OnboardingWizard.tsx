@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import BasicsFeaturesStep from './BasicsFeaturesStep'
 import QuizStep from './QuizStep'
 import TagSelectionStep from './TagSelectionStep'
 import TutorialStep from './TutorialStep'
@@ -10,7 +11,7 @@ interface OnboardingWizardProps {
   onSkip: () => void
 }
 
-type Step = 'quiz' | 'tags' | 'tutorial'
+type Step = 'basics' | 'quiz' | 'tags' | 'tutorial'
 
 interface QuizAnswer {
   questionId: number
@@ -18,12 +19,16 @@ interface QuizAnswer {
 }
 
 function OnboardingWizard({ isOpen, onComplete, onSkip }: OnboardingWizardProps) {
-  const [currentStep, setCurrentStep] = useState<Step>('quiz')
+  const [currentStep, setCurrentStep] = useState<Step>('basics')
   const [recommendedTags, setRecommendedTags] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
   if (!isOpen) return null
+
+  const handleBasicsComplete = () => {
+    setCurrentStep('quiz')
+  }
 
   const handleQuizComplete = async (answers: QuizAnswer[]) => {
     setLoading(true)
@@ -121,12 +126,14 @@ function OnboardingWizard({ isOpen, onComplete, onSkip }: OnboardingWizardProps)
 
   const getStepNumber = () => {
     switch (currentStep) {
-      case 'quiz':
+      case 'basics':
         return 1
-      case 'tags':
+      case 'quiz':
         return 2
-      case 'tutorial':
+      case 'tags':
         return 3
+      case 'tutorial':
+        return 4
       default:
         return 1
     }
@@ -144,11 +151,17 @@ function OnboardingWizard({ isOpen, onComplete, onSkip }: OnboardingWizardProps)
         <div className="onboarding-header">
           <h1 className="onboarding-title">ようこそ OshiStream へ</h1>
           <div className="step-indicator">
-            ステップ {getStepNumber()} / 3
+            ステップ {getStepNumber()} / 4
           </div>
         </div>
 
         <div className="onboarding-content">
+          {currentStep === 'basics' && (
+            <BasicsFeaturesStep
+              onComplete={handleBasicsComplete}
+            />
+          )}
+
           {currentStep === 'quiz' && (
             <QuizStep
               onComplete={handleQuizComplete}

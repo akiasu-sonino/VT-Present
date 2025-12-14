@@ -91,3 +91,53 @@ export function determineCurrentStep(progress: OnboardingProgress | null): 'quiz
 
   return 'quiz'
 }
+
+/**
+ * 匿名ユーザーにログイン誘導モーダルを表示すべきか判定
+ * @param progress オンボーディング進捗
+ * @returns モーダルを表示すべきか
+ */
+export function shouldShowAnonymousModal(progress: OnboardingProgress | null): boolean {
+  // 進捗がない場合は表示
+  if (!progress) {
+    return true
+  }
+
+  // すでに表示済みなら表示しない
+  if (progress.anonymous_tutorial_shown) {
+    return false
+  }
+
+  // スキップ済みなら表示しない
+  if (progress.anonymous_tutorial_skipped) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * 認証済みユーザーの現在のステップを判定（基本機能説明を含む）
+ * @param progress オンボーディング進捗
+ * @returns 現在のステップ
+ */
+export function determineAuthenticatedUserStep(progress: OnboardingProgress | null): 'basics' | 'quiz' | 'tags' | 'tutorial' | 'completed' | null {
+  if (!progress) {
+    return 'basics'  // 基本機能説明から開始
+  }
+
+  if (progress.tutorial_completed) {
+    return 'completed'
+  }
+
+  if (progress.tags_selected) {
+    return 'tutorial'
+  }
+
+  if (progress.quiz_completed) {
+    return 'tags'
+  }
+
+  // クイズ未完了の場合は基本機能説明から
+  return 'basics'
+}

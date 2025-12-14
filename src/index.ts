@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, migrateOnboardingProgress, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, migrateOnboardingProgress, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { cache } from './lib/cache.js'
 import { writeCache } from './lib/write-cache.js'
@@ -10,7 +10,7 @@ import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessi
 import { getLiveStreamStatus, type LiveStreamInfo } from './lib/youtube.js'
 import { createAuditLog } from './lib/audit-log.js'
 import { getCollaborativeRecommendations, getCollaborativeRecommendationsWithDebug } from './lib/collaborative-filtering.js'
-import { mapAnswersToTags, determineCurrentStep } from './lib/onboarding.js'
+import { mapAnswersToTags, determineCurrentStep, shouldShowAnonymousModal, determineAuthenticatedUserStep } from './lib/onboarding.js'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -1268,6 +1268,90 @@ app.post('/onboarding/tutorial-complete', async (c) => {
     })
   } catch (error) {
     console.error('Error completing onboarding:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// 匿名ユーザー向けログイン誘導モーダル表示判定
+app.get('/onboarding/should-show-anonymous-modal', async (c) => {
+  try {
+    // 匿名ユーザーを取得
+    const { user } = await getOrCreateCurrentUser(c)
+
+    // ログイン済みの場合は表示しない
+    const userId = await getSessionUserId(c)
+    if (userId) {
+      return c.json({ shouldShow: false })
+    }
+
+    // オンボーディング進捗を取得
+    const progress = await getOnboardingProgress(user.id)
+
+    // モーダル表示判定
+    const shouldShow = shouldShowAnonymousModal(progress)
+
+    return c.json({ shouldShow })
+  } catch (error) {
+    console.error('Error checking anonymous modal status:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// 匿名ユーザー向けログイン誘導モーダルを表示済みとしてマーク
+app.post('/onboarding/mark-anonymous-modal-shown', async (c) => {
+  try {
+    // 匿名ユーザーを取得
+    const { user } = await getOrCreateCurrentUser(c)
+
+    // モーダル表示済みフラグを設定
+    await markAnonymousModalShown(user.id)
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error marking anonymous modal as shown:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// 匿名ユーザー向けログイン誘導モーダルをスキップとしてマーク
+app.post('/onboarding/skip-anonymous-modal', async (c) => {
+  try {
+    // 匿名ユーザーを取得
+    const { user } = await getOrCreateCurrentUser(c)
+
+    // スキップフラグを設定
+    await markAnonymousModalSkipped(user.id)
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error skipping anonymous modal:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// 認証済みユーザーのオンボーディング状態取得
+app.get('/onboarding/authenticated-status', async (c) => {
+  try {
+    // セッションからユーザーIDを取得
+    const userId = await getSessionUserId(c)
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    // オンボーディング進捗を取得
+    const progress = await getOnboardingProgressByUserId(userId)
+
+    // 認証済みユーザーのステップを判定
+    const currentStep = determineAuthenticatedUserStep(progress)
+
+    return c.json({
+      hasCompletedOnboarding: progress?.tutorial_completed || false,
+      currentStep,
+      progress: progress || null,
+      recommendedTags: progress?.quiz_results?.recommendedTags || []
+    })
+  } catch (error) {
+    console.error('Error fetching authenticated onboarding status:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })
