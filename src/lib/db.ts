@@ -524,7 +524,7 @@ export async function saveTagSelection(
     const result = await sql<OnboardingProgress>`
       UPDATE user_onboarding_progress
       SET tags_selected = TRUE,
-          selected_tags = ${sql.array(selectedTags)}
+          selected_tags = ${selectedTags}
       WHERE anonymous_user_id = ${anonymousUserId}
       RETURNING *
     `
@@ -540,7 +540,7 @@ export async function saveTagSelection(
       VALUES (
         ${anonymousUserId},
         TRUE,
-        ${sql.array(selectedTags)}
+        ${selectedTags}
       )
       RETURNING *
     `
@@ -670,7 +670,7 @@ export async function saveTagSelectionForUser(
     const result = await sql<OnboardingProgress>`
       UPDATE user_onboarding_progress
       SET tags_selected = TRUE,
-          selected_tags = ${sql.array(selectedTags)}
+          selected_tags = ${selectedTags}
       WHERE user_id = ${userId}
       RETURNING *
     `
@@ -686,7 +686,7 @@ export async function saveTagSelectionForUser(
       VALUES (
         ${userId},
         TRUE,
-        ${sql.array(selectedTags)}
+        ${selectedTags}
       )
       RETURNING *
     `

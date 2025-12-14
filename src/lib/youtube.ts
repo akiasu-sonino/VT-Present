@@ -31,9 +31,31 @@ interface YouTubeVideosResponse {
 
 const RSS_MAX_VIDEOS = 3 // RSSから取得する最新動画数
 const VIDEOS_BATCH_SIZE = 50
+const FETCH_TIMEOUT_MS = 10000 // 10秒でタイムアウト
+const MAX_RETRIES = 2 // 最大リトライ回数
 
 async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * タイムアウト付きfetch
+ */
+async function fetchWithTimeout(url: string, timeoutMs: number = FETCH_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    clearTimeout(timeoutId)
+    return response
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Fetch timeout after ${timeoutMs}ms: ${url}`)
+    }
+    throw error
+  }
 }
 
 /**
@@ -41,16 +63,25 @@ async function delay(ms: number): Promise<void> {
  * @param channelId YouTubeチャンネルID
  * @returns 最新動画IDの配列（最大RSS_MAX_VIDEOS件）
  */
-async function fetchVideoIdsFromRSS(channelId: string): Promise<string[]> {
+async function fetchVideoIdsFromRSS(channelId: string, retryCount = 0): Promise<string[]> {
   try {
     const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
-    const response = await fetch(rssUrl)
+    const response = await fetchWithTimeout(rssUrl)
 
     if (!response.ok) {
       console.error('[YouTube RSS] Failed to fetch RSS feed', {
         channelId,
-        status: response.status
+        status: response.status,
+        statusText: response.statusText
       })
+
+      // 5xx エラーの場合はリトライ
+      if (response.status >= 500 && retryCount < MAX_RETRIES) {
+        console.log(`[YouTube RSS] Retrying (${retryCount + 1}/${MAX_RETRIES}) for channel ${channelId}`)
+        await delay(1000 * (retryCount + 1)) // 指数バックオフ
+        return fetchVideoIdsFromRSS(channelId, retryCount + 1)
+      }
+
       return []
     }
 
@@ -65,9 +96,22 @@ async function fetchVideoIdsFromRSS(channelId: string): Promise<string[]> {
       if (videoIds.length >= RSS_MAX_VIDEOS) break
     }
 
+    console.log(`[YouTube RSS] Successfully fetched ${videoIds.length} videos for channel ${channelId}`)
     return videoIds
   } catch (error) {
-    console.error('[YouTube RSS] Error fetching RSS feed', { channelId, error })
+    console.error('[YouTube RSS] Error fetching RSS feed', {
+      channelId,
+      error: error instanceof Error ? error.message : String(error),
+      retryCount
+    })
+
+    // タイムアウトやネットワークエラーの場合はリトライ
+    if (retryCount < MAX_RETRIES) {
+      console.log(`[YouTube RSS] Retrying (${retryCount + 1}/${MAX_RETRIES}) after error for channel ${channelId}`)
+      await delay(1000 * (retryCount + 1))
+      return fetchVideoIdsFromRSS(channelId, retryCount + 1)
+    }
+
     return []
   }
 }
@@ -102,7 +146,8 @@ async function fetchLatestVideoIdsFromRSS(
  */
 async function fetchVideoLiveDetails(
   videoIds: string[],
-  apiKey: string
+  apiKey: string,
+  retryCount = 0
 ): Promise<Map<string, { channelId: string; title: string; viewerCount?: number; isLive: boolean }>> {
   const liveVideosMap = new Map<string, { channelId: string; title: string; viewerCount?: number; isLive: boolean }>()
 
@@ -114,18 +159,31 @@ async function fetchVideoLiveDetails(
       url.searchParams.set('id', batch.join(','))
       url.searchParams.set('key', apiKey)
 
-      const response = await fetch(url.toString())
+      const response = await fetchWithTimeout(url.toString())
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('[YouTube] videos:list error', {
-          videoIds: batch,
+        console.error('[YouTube API] videos:list error', {
+          batchSize: batch.length,
           status: response.status,
-          error: errorText
+          statusText: response.statusText,
+          error: errorText.substring(0, 200) // エラーメッセージを短縮
         })
+
+        // 5xx エラーまたはレート制限（429）の場合はリトライ
+        if ((response.status >= 500 || response.status === 429) && retryCount < MAX_RETRIES) {
+          console.log(`[YouTube API] Retrying batch (${retryCount + 1}/${MAX_RETRIES})`)
+          await delay(2000 * (retryCount + 1)) // 指数バックオフ
+          const retryResult = await fetchVideoLiveDetails(batch, apiKey, retryCount + 1)
+          retryResult.forEach((value, key) => liveVideosMap.set(key, value))
+          continue
+        }
+
         continue
       }
 
       const data: YouTubeVideosResponse = await response.json()
+      console.log(`[YouTube API] Successfully fetched ${data.items?.length || 0} video details from batch of ${batch.length}`)
+
       data.items?.forEach(item => {
         const liveDetails = item.liveStreamingDetails
         // actualStartTimeがあり、actualEndTimeがない（undefined/null）なら配信中
@@ -138,10 +196,24 @@ async function fetchVideoLiveDetails(
             viewerCount: liveDetails?.concurrentViewers ? parseInt(liveDetails.concurrentViewers, 10) : undefined,
             isLive: true
           })
+          console.log(`[YouTube API] Found live stream: ${item.snippet.title} (${item.id})`)
         }
       })
     } catch (error) {
-      console.error('[YouTube] Failed to fetch video details', { videoIds: batch, error })
+      console.error('[YouTube API] Failed to fetch video details', {
+        batchSize: batch.length,
+        error: error instanceof Error ? error.message : String(error),
+        retryCount
+      })
+
+      // タイムアウトやネットワークエラーの場合はリトライ
+      if (retryCount < MAX_RETRIES) {
+        console.log(`[YouTube API] Retrying batch after error (${retryCount + 1}/${MAX_RETRIES})`)
+        await delay(2000 * (retryCount + 1))
+        const retryResult = await fetchVideoLiveDetails(batch, apiKey, retryCount + 1)
+        retryResult.forEach((value, key) => liveVideosMap.set(key, value))
+        continue
+      }
     }
 
     if (i + VIDEOS_BATCH_SIZE < videoIds.length) {
@@ -168,6 +240,7 @@ export async function getLiveStreamStatus(
   }
 
   console.log(`[YouTube] Polling for ${channelIds.length} channels (RSS -> videos)`)
+  const startTime = Date.now()
 
   // 1. RSSフィードから各チャンネルの最新動画を取得（無料）
   const videoIdsMap = await fetchLatestVideoIdsFromRSS(channelIds)
@@ -178,14 +251,18 @@ export async function getLiveStreamStatus(
     allVideoIds.push(...videoIds)
   })
 
-  console.log(`[YouTube] Fetched ${allVideoIds.length} videos from ${videoIdsMap.size} channels via RSS`)
+  const rssTime = Date.now() - startTime
+  console.log(`[YouTube] Fetched ${allVideoIds.length} videos from ${videoIdsMap.size}/${channelIds.length} channels via RSS (${rssTime}ms)`)
 
   // 3. videos:list でライブ配信状態を確認（1 unit/50 videos）
+  const apiStartTime = Date.now()
   const liveVideosMap = allVideoIds.length > 0
     ? await fetchVideoLiveDetails(allVideoIds, apiKey)
     : new Map()
 
-  console.log(`[YouTube] Found ${liveVideosMap.size} live streams`)
+  const apiTime = Date.now() - apiStartTime
+  const totalTime = Date.now() - startTime
+  console.log(`[YouTube] Found ${liveVideosMap.size} live streams (API: ${apiTime}ms, Total: ${totalTime}ms)`)
 
   // 4. チャンネルごとにライブ配信状態を構築
   const now = Date.now()
