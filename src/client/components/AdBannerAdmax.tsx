@@ -8,14 +8,16 @@ import '../styles/AdBannerAdmax.css';
  * 参考: https://adm.shinobi.jp/
  */
 export function AdBannerAdmax() {
-  const containerRef = useRef<HTMLDivElement>(null);
   const scriptAddedRef = useRef(false);
 
   useEffect(() => {
     // 既に追加済みの場合はスキップ
     if (scriptAddedRef.current) {
+      console.log('[Admax] Script already added');
       return;
     }
+
+    console.log('[Admax] Adding script to document.body');
 
     const s = document.createElement('script');
     s.src = 'https://adm.shinobi.jp/s/629a281b9d6e718ee7676471ecea6b17';
@@ -30,24 +32,23 @@ export function AdBannerAdmax() {
       console.error('[Admax] Failed to load script');
     };
 
-    // コンテナ内に追加する方法を試す
-    if (containerRef.current) {
-      containerRef.current.appendChild(s);
-      console.log('[Admax] Script appended to container');
-    }
+    // document.bodyに追加（記事の推奨方法）
+    document.body.appendChild(s);
+    console.log('[Admax] Script appended to document.body');
 
     // クリーンアップ
     return () => {
       if (s.parentNode) {
         s.parentNode.removeChild(s);
         scriptAddedRef.current = false;
+        console.log('[Admax] Script removed from document.body');
       }
     };
   }, []);
 
   return (
     <div className="admax-sidebar-container">
-      <div ref={containerRef} className="admax-sidebar-content">
+      <div className="admax-sidebar-content">
         {/* 広告がここに表示されます */}
       </div>
     </div>

@@ -93,7 +93,8 @@ EOF
         echo "[]"
     else
         echo "$normalized_result" | tr -d ' 	
-'
+
+'
     fi
 }
 
