@@ -235,31 +235,10 @@ export async function getAllTags(): Promise<string[]> {
 
 /**
  * タグカテゴリ情報を取得
- * タグをカテゴリ別にグループ化して返す
+ * キャッシュされたデータから取得するため、DBアクセスを最小化
  */
 export async function getTagCategories(): Promise<Record<string, string[]>> {
-  try {
-    const result = await sql`
-      SELECT category_name, tag_name
-      FROM tag_categories
-      ORDER BY category_name, sort_order, tag_name
-    `
-
-    const categories: Record<string, string[]> = {}
-
-    result.rows.forEach((row: { category_name: string; tag_name: string }) => {
-      if (!categories[row.category_name]) {
-        categories[row.category_name] = []
-      }
-      categories[row.category_name].push(row.tag_name)
-    })
-
-    return categories
-  } catch (error) {
-    console.error('Error fetching tag categories:', error)
-    // エラー時は空のオブジェクトを返す
-    return {}
-  }
+  return cache.getTagCategories()
 }
 
 /**
@@ -328,24 +307,10 @@ export async function linkAnonymousUserToUser(
 
 /**
  * 配信者のコメント一覧を取得
- * ユーザー情報とJOINして返す
+ * ユーザー情報とJOINして返す（キャッシュ経由、5分TTL）
  */
 export async function getCommentsByStreamerId(streamerId: number): Promise<Comment[]> {
-  const result = await sql<Comment>`
-    SELECT
-      c.*,
-      json_build_object(
-        'id', u.id,
-        'name', u.name,
-        'email', u.email,
-        'avatar_url', u.avatar_url
-      ) as user
-    FROM comments c
-    INNER JOIN users u ON c.user_id = u.id
-    WHERE c.streamer_id = ${streamerId}
-    ORDER BY c.created_at DESC
-  `
-  return result.rows
+  return cache.getCommentsByStreamerId(streamerId)
 }
 
 /**
@@ -405,46 +370,23 @@ export async function removeTagFromStreamer(streamerId: number, tag: string): Pr
 /**
  * ユーザーのアクション履歴をスコア付きMapで取得
  * 協調フィルタリングで使用
+ * キャッシュされたデータから取得するため、DBアクセスを最小化
  * @param userId 匿名ユーザーID
  * @returns Map<streamerId, score> (LIKE: 1.0, SOSO: 0.3, DISLIKE: -0.5)
  */
 export async function getUserPreferences(userId: number): Promise<Map<number, number>> {
-  const result = await sql<{ streamer_id: number; score: number }>`
-    SELECT
-      streamer_id,
-      CASE
-        WHEN action = 'LIKE' THEN 1.0
-        WHEN action = 'SOSO' THEN 0.3
-        WHEN action = 'DISLIKE' THEN -0.5
-        ELSE 0.0
-      END as score
-    FROM preferences
-    WHERE anonymous_user_id = ${userId}
-  `
-
-  const prefs = new Map<number, number>()
-  for (const row of result.rows) {
-    prefs.set(row.streamer_id, row.score)
-  }
-
-  return prefs
+  return cache.getUserPreferences(userId)
 }
 
 /**
  * アクション数がN件以上のアクティブユーザーIDリストを取得
  * 協調フィルタリングの対象ユーザー抽出に使用
+ * キャッシュされたデータから取得するため、DBアクセスを最小化
  * @param minActions 最小アクション数（デフォルト: 5）
  * @returns アクティブユーザーIDの配列
  */
 export async function getActiveUserIds(minActions: number = 5): Promise<number[]> {
-  const result = await sql<{ anonymous_user_id: number }>`
-    SELECT anonymous_user_id
-    FROM preferences
-    GROUP BY anonymous_user_id
-    HAVING COUNT(*) >= ${minActions}
-  `
-
-  return result.rows.map(row => row.anonymous_user_id)
+  return cache.getActiveUserIds(minActions)
 }
 
 // ========================================

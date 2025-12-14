@@ -7,6 +7,9 @@
  * - ユーザー情報：1時間キャッシュ
  * - ユーザープリファレンス（スコア付き）：1時間キャッシュ
  * - ユーザー類似度：1時間キャッシュ
+ * - タグカテゴリ：1時間キャッシュ
+ * - アクティブユーザーID：1時間キャッシュ
+ * - コメント：5分キャッシュ（リアルタイム性重視）
  * - ライブ配信状態：5分キャッシュ（RSS + Videos API）
  */
 
@@ -30,6 +33,9 @@ class DataCache {
   private liveStatusCache: CacheEntry<Map<string, LiveStreamInfo>> | null = null
   private userPreferencesCache: Map<number, CacheEntry<Map<number, number>>> = new Map()
   private userSimilarityCache: Map<string, CacheEntry<number>> = new Map()
+  private tagCategoriesCache: CacheEntry<Record<string, string[]>> | null = null
+  private activeUserIdsCache: Map<number, CacheEntry<number[]>> = new Map()
+  private commentsCache: Map<number, CacheEntry<any[]>> = new Map()
 
   private readonly TTL = 60 * 60 * 1000 // 1時間（ミリ秒）
   private readonly LIVE_STATUS_TTL = 5 * 60 * 1000 // 5分（ミリ秒） - YouTubeライブステータスは5分毎にポーリング
@@ -313,11 +319,73 @@ class DataCache {
   }
 
   /**
+   * タグカテゴリをキャッシュから取得
+   * キャッシュが無効またはTTL切れの場合はDBから取得
+   */
+  async getTagCategories(): Promise<Record<string, string[]>> {
+    // キャッシュが有効かチェック
+    if (this.tagCategoriesCache && this.tagCategoriesCache.expiresAt > Date.now()) {
+      console.log('[Cache] Using cached tag categories data')
+      return this.tagCategoriesCache.data
+    }
+
+    // DBから取得
+    console.log('[Cache] Fetching tag categories from DB (cache miss or expired)')
+    try {
+      const result = await sql<{ category_name: string; tag_name: string }>`
+        SELECT category_name, tag_name
+        FROM tag_categories
+        ORDER BY category_name, sort_order, tag_name
+      `
+
+      const categories: Record<string, string[]> = {}
+      result.rows.forEach(row => {
+        if (!categories[row.category_name]) {
+          categories[row.category_name] = []
+        }
+        categories[row.category_name].push(row.tag_name)
+      })
+
+      // キャッシュを更新
+      this.tagCategoriesCache = {
+        data: categories,
+        expiresAt: Date.now() + this.TTL
+      }
+
+      console.log(`[Cache] Cached ${Object.keys(categories).length} tag categories for 1 hour`)
+      return categories
+
+    } catch (error) {
+      console.error('[Cache] Error fetching tag categories:', error)
+      return {}
+    }
+  }
+
+  /**
    * ライブ配信状態をキャッシュから取得
    */
   getLiveStatus(): Map<string, LiveStreamInfo> | null {
     if (this.liveStatusCache && this.liveStatusCache.expiresAt > Date.now()) {
       console.log('[Cache] Using cached live status data')
+      return this.liveStatusCache.data
+    }
+    return null
+  }
+
+  /**
+   * ライブ配信状態をキャッシュから取得（Stale版: TTL切れでもデータを返す）
+   * エラー時のフォールバック用
+   */
+  getLiveStatusStale(): Map<string, LiveStreamInfo> | null {
+    if (this.liveStatusCache) {
+      const ttlRemaining = this.liveStatusCache.expiresAt - Date.now()
+      if (ttlRemaining > 0) {
+        console.log('[Cache] Using fresh live status data')
+      } else {
+        console.log('[Cache] Using STALE live status data (expired)', {
+          expiredFor: Math.abs(ttlRemaining)
+        })
+      }
       return this.liveStatusCache.data
     }
     return null
@@ -388,6 +456,94 @@ class DataCache {
   }
 
   /**
+   * アクション数がN件以上のアクティブユーザーIDリストを取得
+   * 協調フィルタリングの対象ユーザー抽出に使用
+   * @param minActions 最小アクション数（デフォルト: 5）
+   * @returns アクティブユーザーIDの配列
+   */
+  async getActiveUserIds(minActions: number = 5): Promise<number[]> {
+    const cached = this.activeUserIdsCache.get(minActions)
+
+    if (cached && cached.expiresAt > Date.now()) {
+      console.log(`[Cache] Using cached active user IDs (minActions: ${minActions})`)
+      return cached.data
+    }
+
+    // DBから取得
+    console.log(`[Cache] Fetching active user IDs from DB (minActions: ${minActions})`)
+    const result = await sql<{ anonymous_user_id: number }>`
+      SELECT anonymous_user_id
+      FROM preferences
+      GROUP BY anonymous_user_id
+      HAVING COUNT(*) >= ${minActions}
+    `
+
+    const userIds = result.rows.map(row => row.anonymous_user_id)
+
+    // キャッシュに保存
+    this.activeUserIdsCache.set(minActions, {
+      data: userIds,
+      expiresAt: Date.now() + this.TTL
+    })
+
+    console.log(`[Cache] Cached ${userIds.length} active user IDs (minActions: ${minActions})`)
+    return userIds
+  }
+
+  /**
+   * 配信者のコメント一覧を取得
+   * ユーザー情報とJOINして返す（5分キャッシュ）
+   * @param streamerId 配信者ID
+   * @returns コメントの配列
+   */
+  async getCommentsByStreamerId(streamerId: number): Promise<any[]> {
+    const cached = this.commentsCache.get(streamerId)
+
+    if (cached && cached.expiresAt > Date.now()) {
+      console.log(`[Cache] Using cached comments for streamer ${streamerId}`)
+      return cached.data
+    }
+
+    // DBから取得
+    console.log(`[Cache] Fetching comments from DB for streamer ${streamerId}`)
+    const result = await sql<any>`
+      SELECT
+        c.*,
+        json_build_object(
+          'id', u.id,
+          'name', u.name,
+          'email', u.email,
+          'avatar_url', u.avatar_url
+        ) as user
+      FROM comments c
+      INNER JOIN users u ON c.user_id = u.id
+      WHERE c.streamer_id = ${streamerId}
+      ORDER BY c.created_at DESC
+    `
+
+    const comments = result.rows
+
+    // キャッシュに保存（5分TTL - リアルタイム性を保つため短く）
+    this.commentsCache.set(streamerId, {
+      data: comments,
+      expiresAt: Date.now() + this.LIVE_STATUS_TTL
+    })
+
+    console.log(`[Cache] Cached ${comments.length} comments for streamer ${streamerId} (5 min TTL)`)
+    return comments
+  }
+
+  /**
+   * コメントキャッシュを無効化
+   * コメント投稿時に呼び出す
+   * @param streamerId 配信者ID
+   */
+  invalidateComments(streamerId: number): void {
+    console.log(`[Cache] Invalidating comments cache for streamer ${streamerId}`)
+    this.commentsCache.delete(streamerId)
+  }
+
+  /**
    * ユーザー類似度をキャッシュから取得
    * @param userId1 ユーザーID1
    * @param userId2 ユーザーID2
@@ -448,6 +604,9 @@ class DataCache {
     liveStatus: { cached: boolean; count: number; ttl: number }
     userPreferences: { count: number }
     userSimilarity: { count: number }
+    tagCategories: { cached: boolean; count: number; ttl: number }
+    activeUserIds: { count: number }
+    comments: { count: number }
   } {
     return {
       streamers: {
@@ -471,6 +630,17 @@ class DataCache {
       },
       userSimilarity: {
         count: this.userSimilarityCache.size
+      },
+      tagCategories: {
+        cached: !!this.tagCategoriesCache,
+        count: this.tagCategoriesCache ? Object.keys(this.tagCategoriesCache.data).length : 0,
+        ttl: this.tagCategoriesCache ? Math.max(0, this.tagCategoriesCache.expiresAt - Date.now()) : 0
+      },
+      activeUserIds: {
+        count: this.activeUserIdsCache.size
+      },
+      comments: {
+        count: this.commentsCache.size
       }
     }
   }

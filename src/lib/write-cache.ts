@@ -5,6 +5,7 @@
  */
 
 import { sql } from '@vercel/postgres'
+import { cache } from './cache.js'
 
 // バッファリングするコメントの型
 interface PendingComment {
@@ -150,6 +151,12 @@ class WriteCache {
 
     await sql.query(query, params)
     console.log(`[WriteCache] Inserted ${comments.length} comments`)
+
+    // 影響を受けたストリーマーのコメントキャッシュを無効化
+    const affectedStreamerIds = new Set(comments.map(c => c.streamerId))
+    affectedStreamerIds.forEach(streamerId => {
+      cache.invalidateComments(streamerId)
+    })
   }
 
   /**

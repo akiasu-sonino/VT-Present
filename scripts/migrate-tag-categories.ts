@@ -4,7 +4,8 @@
  * タグカテゴリテーブルを作成し、初期データを投入します
  *
  * 実行方法:
- * npm run migrate-tag-categories
+ * ローカル: npm run migrate-tag-categories
+ * 本番: POSTGRES_URL=... npm run migrate-tag-categories
  */
 
 import { config } from 'dotenv'
@@ -12,8 +13,13 @@ import { sql } from '@vercel/postgres'
 import fs from 'fs'
 import path from 'path'
 
-// .env.localを読み込み
+// 環境変数を読み込み（.env.local があれば優先）
 config({ path: '.env.local' })
+
+// 本番環境チェック
+const isProd = process.env.NODE_ENV === 'production' || !process.env.POSTGRES_URL?.includes('localhost')
+console.log(`Environment: ${isProd ? 'Production' : 'Development'}`)
+console.log(`Database: ${process.env.POSTGRES_URL ? 'Connected' : 'Not configured'}\n`)
 
 async function migrateTagCategories() {
   console.log('🚀 Starting tag categories migration...\n')

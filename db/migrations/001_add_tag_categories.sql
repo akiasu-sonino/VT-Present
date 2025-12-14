@@ -24,11 +24,21 @@ INSERT INTO tag_categories (category_name, tag_name, sort_order) VALUES
   ('ゲーム配信', 'アクション', 4),
   ('ゲーム配信', '格ゲー', 5),
   ('ゲーム配信', 'ホラゲー', 6),
-  ('ゲーム配信', 'マイクラ', 7),
-  ('ゲーム配信', 'APEX', 8),
-  ('ゲーム配信', 'Valorant', 9)
+  ('ゲーム配信', 'パズル', 7),
+  ('ゲーム配信', '育成ゲーム', 8),
+  ('ゲーム配信', 'Minecraft', 21),
+  ('ゲーム配信', 'APEX', 22),
+  ('ゲーム配信', 'LoL', 23),
+  ('ゲーム配信', 'Valorant', 10),
+  ('ゲーム配信', 'ゲーム実況', 99)
 ON CONFLICT (category_name, tag_name) DO NOTHING;
-
+INSERT INTO tag_categories (category_name, tag_name, sort_order) VALUES
+  ('所属', 'にじさんじ', 1),
+  ('所属', 'ぶいすぽ', 2),
+  ('所属', 'ネオポルテ', 3),
+  ('所属', 'ZETADIVISION', 4),
+  ('所属', '個人勢', 5)
+ON CONFLICT (category_name, tag_name) DO NOTHING;
 -- エンタメ
 INSERT INTO tag_categories (category_name, tag_name, sort_order) VALUES
   ('エンタメ', '歌ってみた', 1),

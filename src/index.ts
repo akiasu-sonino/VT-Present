@@ -88,8 +88,8 @@ app.get('/tags', async (c) => {
   try {
     const tags = await getAllTags()
     const categories = await getTagCategories()
-    // タグは頻繁に変わらないので1時間キャッシュ
-    c.header('Cache-Control', 'public, max-age=3600')
+    // メモリキャッシュがあるため短いHTTPキャッシュでOK
+    c.header('Cache-Control', 'public, max-age=30, s-maxage=30')
     return c.json({ tags, categories })
   } catch (error) {
     console.error('Error fetching tags:', error)
@@ -358,15 +358,24 @@ app.get('/streams/random-multiple', async (c) => {
     // ライブ中のみフィルターが有効な場合、ライブ中のチャンネルIDを取得
     let liveChannelIds: string[] | undefined
     if (liveOnly) {
-      const liveStatusMap = cache.getLiveStatus()
+      let liveStatusMap = cache.getLiveStatus()
+
+      // キャッシュがない場合、Stale版を試す（TTL切れでもOK）
+      if (!liveStatusMap) {
+        liveStatusMap = cache.getLiveStatusStale()
+        if (liveStatusMap) {
+          console.log('[LiveFilter] Using stale cache for live filter')
+        }
+      }
+
       if (liveStatusMap) {
         liveChannelIds = Array.from(liveStatusMap.entries())
           .filter(([, status]) => status.isLive)
           .map(([channelId]) => channelId)
         console.log(`[LiveFilter] Found ${liveChannelIds.length} live channels`)
       } else {
-        // ライブステータスがキャッシュにない場合は空配列を返す
-        console.log('[LiveFilter] No live status cache available')
+        // ライブステータスが全くない場合は空配列を返す
+        console.log('[LiveFilter] No live status cache available (not even stale)')
         liveChannelIds = []
       }
     }
@@ -459,7 +468,7 @@ app.get('/streamers/live-status', async (c) => {
     let liveStatusMap = cache.getLiveStatus()
 
     if (!liveStatusMap) {
-      // キャッシュミス: 全配信者を取得
+      // キャッシュミスまたはTTL切れ: 全配信者を取得
       const streamers = await cache.getStreamers()
 
       // YouTubeチャンネルIDを持つ配信者のみをフィルタ
@@ -484,8 +493,16 @@ app.get('/streamers/live-status', async (c) => {
         cache.setLiveStatus(liveStatusMap)
       } catch (youtubeError) {
         console.error('[LiveStatus] YouTube API error:', youtubeError)
-        // エラーの場合は空のMapを返す
-        return c.json({ liveStatus: {} })
+
+        // エラー時のフォールバック: 古いキャッシュデータを使う（Stale-While-Revalidate）
+        const staleLiveStatus = cache.getLiveStatusStale()
+        if (staleLiveStatus) {
+          console.log('[LiveStatus] Falling back to stale cache data due to API error')
+          liveStatusMap = staleLiveStatus
+        } else {
+          console.error('[LiveStatus] No stale cache available, returning empty')
+          return c.json({ liveStatus: {} })
+        }
       }
     }
 
