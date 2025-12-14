@@ -52,7 +52,9 @@ function generateStreamerPageHTML(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
-
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2390171962684817"
+     crossorigin="anonymous"></script>
   <!-- OGP Meta Tags -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="${pageUrl}">
