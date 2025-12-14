@@ -487,19 +487,33 @@ app.get('/streams/random-multiple', async (c) => {
     // アクション済み配信者IDを取得
     const excludeIds = await getActionedStreamerIds(user.id)
 
+    // ライブステータスを取得（バッジ表示用にも必要）
+    let liveStatusMap = cache.getLiveStatus()
+
+    // キャッシュがない場合、Stale版を試す（TTL切れでもOK）
+    if (!liveStatusMap) {
+      liveStatusMap = cache.getLiveStatusStale()
+      if (liveStatusMap) {
+        console.log('[LiveStatus] Using stale cache for live status')
+      }
+    }
+
+    // ライブステータスをレスポンス用のオブジェクトに変換
+    const liveStatus: Record<string, { isLive: boolean; viewerCount?: number; videoId?: string; title?: string }> = {}
+    if (liveStatusMap) {
+      for (const [channelId, status] of liveStatusMap.entries()) {
+        liveStatus[channelId] = {
+          isLive: status.isLive,
+          viewerCount: status.viewerCount,
+          videoId: status.videoId,
+          title: status.title
+        }
+      }
+    }
+
     // ライブ中のみフィルターが有効な場合、ライブ中のチャンネルIDを取得
     let liveChannelIds: string[] | undefined
     if (liveOnly) {
-      let liveStatusMap = cache.getLiveStatus()
-
-      // キャッシュがない場合、Stale版を試す（TTL切れでもOK）
-      if (!liveStatusMap) {
-        liveStatusMap = cache.getLiveStatusStale()
-        if (liveStatusMap) {
-          console.log('[LiveFilter] Using stale cache for live filter')
-        }
-      }
-
       if (liveStatusMap) {
         liveChannelIds = Array.from(liveStatusMap.entries())
           .filter(([, status]) => status.isLive)
@@ -534,7 +548,8 @@ app.get('/streams/random-multiple', async (c) => {
           ...result,
           count: result.streamers.length,
           filters: { tags, query, tagOperator, minFollowers, maxFollowers, liveOnly },
-          algorithm: 'collaborative'
+          algorithm: 'collaborative',
+          liveStatus
         })
       } else {
         // 通常モード
@@ -556,7 +571,8 @@ app.get('/streams/random-multiple', async (c) => {
           streamers,
           count: streamers.length,
           filters: { tags, query, tagOperator, minFollowers, maxFollowers, liveOnly },
-          algorithm: 'collaborative'
+          algorithm: 'collaborative',
+          liveStatus
         })
       }
     } else {
@@ -568,7 +584,8 @@ app.get('/streams/random-multiple', async (c) => {
         streamers,
         count: streamers.length,
         filters: { tags, query, tagOperator, minFollowers, maxFollowers, liveOnly },
-        algorithm: 'random'
+        algorithm: 'random',
+        liveStatus
       })
     }
   } catch (error) {

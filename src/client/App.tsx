@@ -103,6 +103,10 @@ function App() {
 
       if (response.ok && data.streamers) {
         setStreamers(data.streamers)
+        // レスポンスに含まれるliveStatusを反映（フィルタと同じデータソースを使用）
+        if (data.liveStatus) {
+          setLiveStatus(data.liveStatus)
+        }
         setError(null)
       } else {
         setError('配信者の取得に失敗しました')
@@ -138,16 +142,14 @@ function App() {
     }
   }, [selectedStreamer])
 
-  // ライブ状態を定期的に取得（本番環境のみ5分ごと）
-  // RSS + Videos API方式で低コスト検知（RSS無料 + 1 unit/50動画）
+  // ライブ中のみフィルタが有効な場合、定期的にfetchStreamersを呼び出してライブ状態を更新
+  // これにより、バッジとフィルタで常に同じデータソースを使用し、挙動が安定する
   useEffect(() => {
-    // 本番環境のみライブ状態を取得
-    if (import.meta.env.PROD) {
-      fetchLiveStatus()
-      const interval = setInterval(fetchLiveStatus, 5 * 60 * 1000) // 5分
+    if (import.meta.env.PROD && showLiveOnly) {
+      const interval = setInterval(fetchStreamers, 5 * 60 * 1000) // 5分
       return () => clearInterval(interval)
     }
-  }, [])
+  }, [showLiveOnly, fetchStreamers])
 
   const fetchCurrentUser = async () => {
     try {
@@ -275,17 +277,8 @@ function App() {
     }
   }
 
-  const fetchLiveStatus = async () => {
-    try {
-      const response = await fetch('/api/streamers/live-status')
-      const data = await response.json()
-      if (response.ok && data.liveStatus) {
-        setLiveStatus(data.liveStatus)
-      }
-    } catch (err) {
-      console.error('Error fetching live status:', err)
-    }
-  }
+  // fetchLiveStatusを削除し、fetchStreamersのレスポンスから常にliveStatusを取得
+  // これにより、バッジとフィルタで同じデータソースを使用し、挙動が安定する
 
   const fetchComments = async (streamerId: number) => {
     try {
