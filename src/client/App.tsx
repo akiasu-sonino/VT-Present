@@ -442,10 +442,12 @@ function App() {
       </header>
 
       {/* 広告バナー - ヘッダー下 */}
+      {/* GoogleAdSense審査中のため一時的に非表示
       <AdBanner
         adClient="ca-pub-2390171962684817"
         adSlot="YOUR_AD_SLOT_ID_HERE"
       />
+      */}
       {/*
       <div>
         <div className="recommended-devices-title">おすすめデバイス</div>
