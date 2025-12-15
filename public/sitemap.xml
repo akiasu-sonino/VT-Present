@@ -6,18 +6,4 @@
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
-
-  <!-- 利用規約 -->
-  <url>
-    <loc>https://www.oshistream.jp/terms</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-
-  <!-- プライバシーポリシー -->
-  <url>
-    <loc>https://www.oshistream.jp/privacy</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
 </urlset>

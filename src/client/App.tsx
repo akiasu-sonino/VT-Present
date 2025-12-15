@@ -8,6 +8,7 @@ import FilterPresets, { type FilterPreset } from './components/FilterPresets'
 import UserMenu from './components/UserMenu'
 import { AdBanner } from './components/AdBanner'
 import { AdMaxBanner } from './components/AdMaxBanner'
+import { AdMaxBannerMobile } from './components/AdMaxBannerMobile'
 import OnboardingWizard from './components/onboarding/OnboardingWizard'
 import LoginPromptModal from './components/onboarding/LoginPromptModal'
 import './styles/App.css'
@@ -72,6 +73,7 @@ function App() {
   const [addingTag, setAddingTag] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   const fetchStreamers = useCallback(async () => {
     try {
@@ -127,6 +129,17 @@ function App() {
     fetchCurrentUser()
     checkOnboarding()
     checkAnonymousModal()
+  }, [])
+
+  // デバイス判定（スマホ・タブレット判定）
+  useEffect(() => {
+    const checkDevice = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+
+    checkDevice()
+    window.addEventListener('resize', checkDevice)
+    return () => window.removeEventListener('resize', checkDevice)
   }, [])
 
   // currentUserが変更されたらオンボーディングをチェック
@@ -462,10 +475,16 @@ function App() {
   return (
     <div className="app">
       {/* AdMax サイドバー固定広告 */}
-      <AdMaxBanner
-        adId="629a281b9d6e718ee7676471ecea6b17"
-        className="admax-sidebar-fixed"
-      />
+      {isMobile ? (
+        <AdMaxBannerMobile
+          className="admax-sidebar-fixed"
+        />
+      ) : (
+        <AdMaxBanner
+          adId="629a281b9d6e718ee7676471ecea6b17"
+          className="admax-sidebar-fixed"
+        />
+      )}
 
       <header className="header">
         <div className="header-top">
