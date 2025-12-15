@@ -474,10 +474,10 @@ function App() {
 
   return (
     <div className="app">
-      {/* AdMax サイドバー固定広告 */}
+      {/* AdMax 広告 */}
       {isMobile ? (
         <AdMaxBannerMobile
-          className="admax-sidebar-fixed"
+          className="admax-mobile-top"
         />
       ) : (
         <AdMaxBanner

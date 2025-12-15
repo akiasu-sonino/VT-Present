@@ -261,6 +261,10 @@
 }
 
 @media (max-width: 768px) {
+  .app {
+    padding-top: 120px; /* 広告の高さ分の余白 */
+  }
+
   .header {
     padding: 20px 10px 10px;
   }

@@ -127,7 +127,31 @@
   pointer-events: auto;
 }
 
-/* モバイル表示では非表示 */
+/* スマホ用最上部固定広告 */
+.admax-mobile-top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 0;
+}
+
+/* PC表示ではスマホ用広告を非表示 */
+@media (min-width: 769px) {
+  .admax-mobile-top {
+    display: none;
+  }
+}
+
+/* モバイル表示ではサイドバー広告を非表示 */
 @media (max-width: 768px) {
   .admax-sidebar-fixed {
     display: none;
