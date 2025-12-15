@@ -115,16 +115,15 @@
   }
 }
 
-/* AdMax サイドバー固定広告 */
+/* AdMax サイドバー専用領域広告 */
 .admax-sidebar-fixed {
-  position: fixed;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 9999;
   width: 160px;
   min-height: 600px;
-  pointer-events: auto;
+  position: sticky;
+  top: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 /* スマホ用最上部固定広告 */
@@ -158,10 +157,3 @@
   }
 }
 
-/* タブレット以下では表示サイズを調整 */
-@media (max-width: 1024px) {
-  .admax-sidebar-fixed {
-    width: 120px;
-    min-height: 400px;
-  }
-}

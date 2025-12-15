@@ -474,78 +474,83 @@ function App() {
 
   return (
     <div className="app">
-      {/* AdMax 広告 */}
-      {isMobile ? (
+      {/* スマホ用最上部固定広告 */}
+      {isMobile && (
         <AdMaxBannerMobile
           className="admax-mobile-top"
         />
-      ) : (
+      )}
+
+      {/* PC用左サイドバー広告 */}
+      {!isMobile && (
         <AdMaxBanner
           adId="629a281b9d6e718ee7676471ecea6b17"
           className="admax-sidebar-fixed"
         />
       )}
 
-      <header className="header">
-        <div className="header-top">
-          <div className="header-branding">
-            <h1 className="title">OshiStream</h1>
-            <p className="subtitle">新たな推しと出会うプラットフォーム</p>
+      {/* メインコンテンツ */}
+      <div className="app-content">
+        <header className="header">
+          <div className="header-top">
+            <div className="header-branding">
+              <h1 className="title">OshiStream</h1>
+              <p className="subtitle">新たな推しと出会うプラットフォーム</p>
+            </div>
+            <UserMenu onUserChange={setCurrentUser} />
           </div>
-          <UserMenu onUserChange={setCurrentUser} />
-        </div>
 
-        <nav className="tab-navigation">
-          <button
-            className={`tab-button ${activeTab === 'discover' ? 'active' : ''}`}
-            onClick={() => setActiveTab('discover')}
-          >
-            探す
-          </button>
-          <button
-            className={`tab-button ${activeTab === 'preferences' ? 'active' : ''}`}
-            onClick={() => setActiveTab('preferences')}
-          >
-            マイリスト
-          </button>
-        </nav>
-      </header>
+          <nav className="tab-navigation">
+            <button
+              className={`tab-button ${activeTab === 'discover' ? 'active' : ''}`}
+              onClick={() => setActiveTab('discover')}
+            >
+              探す
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'preferences' ? 'active' : ''}`}
+              onClick={() => setActiveTab('preferences')}
+            >
+              マイリスト
+            </button>
+          </nav>
+        </header>
 
-      {/* 広告バナー - ヘッダー下 */}
-      {/* GoogleAdSense審査中のため一時的に非表示
-      <AdBanner
-        adClient="ca-pub-2390171962684817"
-        adSlot="YOUR_AD_SLOT_ID_HERE"
-      />
-      */}
-      {/*
-      <div>
-        <div className="recommended-devices-title">おすすめデバイス</div>
-        <HorizontalLayout
-          items={[
-            {
-              content: <AdBannerAmazon url="https://amzn.to/48r6qld" imageSrc="https://m.media-amazon.com/images/I/61Sy-86P2FL._AC_SL1500_.jpg" alt="おすすめの入門用キーボード。キー入力がなめらか。" />,
-              width: '20%' // col-5相当 (5/12)
-            },
-            {
-              content: <AdBannerAmazon url="https://amzn.to/3MqZUCv" imageSrc="https://m.media-amazon.com/images/I/51PesoBHTQL._AC_SL1500_.jpg" alt="おすすめの入門用マウス。無線で軽くて使いやすい。" />,
-              width: '20%' // col-4相当 (4/12)
-            },
-            {
-              content: <AdBannerAmazon url="https://amzn.to/44imOlH" imageSrc="https://m.media-amazon.com/images/I/61kTEwDIwbL._AC_SL1500_.jpg" alt="おすすめの入門用マイク。通話相手に聞こえやすい。" />,
-              width: '20%' // col-4相当 (4/12)
-            },
-            {
-              content: <AdBannerAmazon url="https://amzn.to/4rIMt0H" imageSrc="https://m.media-amazon.com/images/I/51XQa8rzYYL._AC_SL1000_.jpg" alt="おすすめの入門用スピーカー。耳がイヤホンで疲れたときに。" />,
-              width: '20%' // col-4相当 (4/12)
-            },
-          ]}
-          containerClassName="mt-4"
-          gap="1rem"
+        {/* 広告バナー - ヘッダー下 */}
+        {/* GoogleAdSense審査中のため一時的に非表示
+        <AdBanner
+          adClient="ca-pub-2390171962684817"
+          adSlot="YOUR_AD_SLOT_ID_HERE"
         />
-      </div>
-      */}
-      <main className="main">
+        */}
+        {/*
+        <div>
+          <div className="recommended-devices-title">おすすめデバイス</div>
+          <HorizontalLayout
+            items={[
+              {
+                content: <AdBannerAmazon url="https://amzn.to/48r6qld" imageSrc="https://m.media-amazon.com/images/I/61Sy-86P2FL._AC_SL1500_.jpg" alt="おすすめの入門用キーボード。キー入力がなめらか。" />,
+                width: '20%' // col-5相当 (5/12)
+              },
+              {
+                content: <AdBannerAmazon url="https://amzn.to/3MqZUCv" imageSrc="https://m.media-amazon.com/images/I/51PesoBHTQL._AC_SL1500_.jpg" alt="おすすめの入門用マウス。無線で軽くて使いやすい。" />,
+                width: '20%' // col-4相当 (4/12)
+              },
+              {
+                content: <AdBannerAmazon url="https://amzn.to/44imOlH" imageSrc="https://m.media-amazon.com/images/I/61kTEwDIwbL._AC_SL1500_.jpg" alt="おすすめの入門用マイク。通話相手に聞こえやすい。" />,
+                width: '20%' // col-4相当 (4/12)
+              },
+              {
+                content: <AdBannerAmazon url="https://amzn.to/4rIMt0H" imageSrc="https://m.media-amazon.com/images/I/51XQa8rzYYL._AC_SL1000_.jpg" alt="おすすめの入門用スピーカー。耳がイヤホンで疲れたときに。" />,
+                width: '20%' // col-4相当 (4/12)
+              },
+            ]}
+            containerClassName="mt-4"
+            gap="1rem"
+          />
+        </div>
+        */}
+        <main className="main">
         {activeTab === 'discover' && (
           <>
             <div className="filters-container">
@@ -773,38 +778,39 @@ function App() {
         </div>
       )}
 
-      {/* オンボーディングウィザード */}
-      {showOnboarding && (
-        <OnboardingWizard
-          isOpen={showOnboarding}
-          onComplete={handleOnboardingComplete}
-          onSkip={handleOnboardingSkip}
-        />
-      )}
+        {/* オンボーディングウィザード */}
+        {showOnboarding && (
+          <OnboardingWizard
+            isOpen={showOnboarding}
+            onComplete={handleOnboardingComplete}
+            onSkip={handleOnboardingSkip}
+          />
+        )}
 
-      {/* ログイン促進モーダル（匿名ユーザー向け） */}
-      {showLoginPrompt && (
-        <LoginPromptModal
-          isOpen={showLoginPrompt}
-          onLogin={handleLoginPromptLogin}
-          onContinueAnonymous={handleLoginPromptContinue}
-        />
-      )}
+        {/* ログイン促進モーダル（匿名ユーザー向け） */}
+        {showLoginPrompt && (
+          <LoginPromptModal
+            isOpen={showLoginPrompt}
+            onLogin={handleLoginPromptLogin}
+            onContinueAnonymous={handleLoginPromptContinue}
+          />
+        )}
 
-      <footer className="footer">
-        <div className="footer-content">
-          <p className="footer-copyright">&copy; 2025 OshiStream. All rights reserved.</p>
-          <div className="footer-links">
-            <a href="/terms" className="footer-link">
-              利用規約
-            </a>
-            <span className="footer-separator">|</span>
-            <a href="/privacy" className="footer-link">
-              プライバシーポリシー
-            </a>
+        <footer className="footer">
+          <div className="footer-content">
+            <p className="footer-copyright">&copy; 2025 OshiStream. All rights reserved.</p>
+            <div className="footer-links">
+              <a href="/terms" className="footer-link">
+                利用規約
+              </a>
+              <span className="footer-separator">|</span>
+              <a href="/privacy" className="footer-link">
+                プライバシーポリシー
+              </a>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   )
 }

@@ -4,6 +4,21 @@
   padding: 20px;
 }
 
+/* PC用レイアウト - 広告専用領域を確保 */
+@media (min-width: 769px) {
+  .app {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 20px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  .app-content {
+    min-width: 0; /* グリッドアイテムのオーバーフロー防止 */
+  }
+}
+
 .header {
   color: white;
   margin-bottom: 40px;
