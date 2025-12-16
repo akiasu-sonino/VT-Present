@@ -5,7 +5,7 @@
  */
 
 import { sql } from '@vercel/postgres'
-import { cache } from './cache.js'
+import { dbAccess } from './db-access.js'
 
 // バッファリングするコメントの型
 interface PendingComment {

@@ -4,7 +4,7 @@
  * ユーザーベースの協調フィルタリングでパーソナライズド推薦を実現
  */
 
-import { cache } from './cache.js'
+import { dbAccess } from './db-access.js'
 import { getActiveUserIds } from './db.js'
 import type { Streamer } from './db.js'
 
@@ -60,7 +60,7 @@ export async function findSimilarUsers(
   minSimilarity: number = 0.3
 ): Promise<{ userId: number; similarity: number }[]> {
   // 現在のユーザーのプリファレンスを取得
-  const currentUserPrefs = await cache.getUserPreferences(userId)
+  const currentUserPrefs = await dbAccess.getUserPreferences(userId)
 
   // コールドスタート対策：アクション数が少ない場合は空配列を返す
   if (currentUserPrefs.size < 5) {
@@ -76,15 +76,9 @@ export async function findSimilarUsers(
   for (const otherUserId of activeUserIds) {
     if (otherUserId === userId) continue
 
-    // キャッシュから類似度取得
-    let similarity = cache.getUserSimilarity(userId, otherUserId)
-
-    if (similarity === null) {
-      // キャッシュミス → 計算
-      const otherUserPrefs = await cache.getUserPreferences(otherUserId)
-      similarity = calculateUserSimilarity(currentUserPrefs, otherUserPrefs)
-      cache.setUserSimilarity(userId, otherUserId, similarity)
-    }
+    // 類似度を計算
+    const otherUserPrefs = await dbAccess.getUserPreferences(otherUserId)
+    const similarity = calculateUserSimilarity(currentUserPrefs, otherUserPrefs)
 
     // 閾値フィルタ
     if (similarity > minSimilarity) {
@@ -127,7 +121,7 @@ export async function getCollaborativeRecommendations(
   // コールドスタート対応：類似ユーザーが見つからない場合はランダムにフォールバック
   if (similarUsers.length === 0) {
     console.log('[CollaborativeFiltering] No similar users found, falling back to random')
-    return cache.getRandomStreamers(limit, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers, liveChannelIds)
+    return dbAccess.getRandomStreamers(limit, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers, liveChannelIds)
   }
 
   // 配信者ごとの推薦スコアを計算
@@ -135,7 +129,7 @@ export async function getCollaborativeRecommendations(
   const totalSimilarity = similarUsers.reduce((sum, u) => sum + u.similarity, 0)
 
   for (const { userId: similarUserId, similarity } of similarUsers) {
-    const similarUserPrefs = await cache.getUserPreferences(similarUserId)
+    const similarUserPrefs = await dbAccess.getUserPreferences(similarUserId)
 
     for (const [streamerId, score] of similarUserPrefs) {
       // 除外リストに含まれる配信者はスキップ
@@ -161,7 +155,7 @@ export async function getCollaborativeRecommendations(
     .map(([id]) => id)
 
   // 配信者データを取得
-  const allStreamers = await cache.getStreamers()
+  const allStreamers = await dbAccess.getStreamers()
   let recommendedStreamers = sortedStreamerIds
     .map(id => allStreamers.find(s => s.id === id))
     .filter(s => s !== undefined) as Streamer[]
@@ -215,7 +209,7 @@ export async function getCollaborativeRecommendations(
   const randomCount = limit - collaborativeCount
 
   const collaborative = recommendedStreamers.slice(0, collaborativeCount)
-  const random = await cache.getRandomStreamers(
+  const random = await dbAccess.getRandomStreamers(
     randomCount,
     [...excludeIds, ...collaborative.map(s => s.id)],
     tags,
@@ -273,12 +267,12 @@ export async function getCollaborativeRecommendationsWithDebug(
 }> {
   // 類似ユーザーを取得
   const similarUsers = await findSimilarUsers(userId, 20)
-  const currentUserPrefs = await cache.getUserPreferences(userId)
+  const currentUserPrefs = await dbAccess.getUserPreferences(userId)
   const activeUserIds = await getActiveUserIds(5)
 
   // コールドスタート対応
   if (similarUsers.length === 0) {
-    const randomStreamers = await cache.getRandomStreamers(limit, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers)
+    const randomStreamers = await dbAccess.getRandomStreamers(limit, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers)
     return {
       streamers: randomStreamers.map(s => ({
         ...s,
@@ -300,7 +294,7 @@ export async function getCollaborativeRecommendationsWithDebug(
   const totalSimilarity = similarUsers.reduce((sum, u) => sum + u.similarity, 0)
 
   for (const { userId: similarUserId, similarity } of similarUsers) {
-    const similarUserPrefs = await cache.getUserPreferences(similarUserId)
+    const similarUserPrefs = await dbAccess.getUserPreferences(similarUserId)
 
     for (const [streamerId, score] of similarUserPrefs) {
       if (excludeIds.includes(streamerId)) continue
@@ -321,7 +315,7 @@ export async function getCollaborativeRecommendationsWithDebug(
     .sort((a, b) => b[1] - a[1])
 
   // 配信者データを取得
-  const allStreamers = await cache.getStreamers()
+  const allStreamers = await dbAccess.getStreamers()
   let recommendedStreamers = sortedEntries
     .map(([id, score]) => {
       const streamer = allStreamers.find(s => s.id === id)
@@ -378,7 +372,7 @@ export async function getCollaborativeRecommendationsWithDebug(
   const randomCount = limit - collaborativeCount
 
   const collaborative = recommendedStreamers.slice(0, collaborativeCount)
-  const random = await cache.getRandomStreamers(
+  const random = await dbAccess.getRandomStreamers(
     randomCount,
     [...excludeIds, ...collaborative.map(s => s.id)],
     tags,

@@ -2,9 +2,9 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, saveQuizResultsForUser, saveTagSelectionForUser, completeOnboardingForUser, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, saveQuizResultsForUser, saveTagSelectionForUser, completeOnboardingForUser, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId, upsertLiveStreams, getLiveStreams, getLiveChannelIds, updateLiveStreamsIfNeeded, type LiveStream } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
-import { cache } from './lib/cache.js'
+import { dbAccess } from './lib/db-access.js'
 import { writeCache } from './lib/write-cache.js'
 import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessionCookie, getSessionUserId, clearSession, isDevelopment, createMockUser } from './lib/oauth.js'
 import { getLiveStreamStatus, type LiveStreamInfo } from './lib/youtube.js'
@@ -192,25 +192,7 @@ app.get('/health', (c) => {
     endpoints: {
       health: '/api/health',
       random: '/api/streams/random',
-      preference: '/api/preference/:action',
-      cacheStats: '/api/cache/stats'
-    }
-  })
-})
-
-// キャッシュ統計情報（デバッグ用）
-app.get('/cache/stats', (c) => {
-  const stats = cache.getStats()
-  const writeStats = writeCache.getStats()
-  return c.json({
-    cache: stats,
-    writeCache: writeStats,
-    description: {
-      streamers: 'All streamer data cached for 1 hour',
-      userActions: 'User action history cached per user',
-      users: 'Anonymous user data cached',
-      ttl: 'Time to live in milliseconds',
-      writeCache: 'Pending writes buffered in memory'
+      preference: '/api/preference/:action'
     }
   })
 })
@@ -489,43 +471,25 @@ app.get('/streams/random-multiple', async (c) => {
     // アクション済み配信者IDを取得
     const excludeIds = await getActionedStreamerIds(user.id)
 
-    // ライブステータスを取得（バッジ表示用にも必要）
-    let liveStatusMap = cache.getLiveStatus()
-
-    // キャッシュがない場合、Stale版を試す（TTL切れでもOK）
-    if (!liveStatusMap) {
-      liveStatusMap = cache.getLiveStatusStale()
-      if (liveStatusMap) {
-        console.log('[LiveStatus] Using stale cache for live status')
-      }
-    }
+    // ライブステータスをDBから取得（バッジ表示用にも必要）
+    const liveStreamsMap = await getLiveStreams()
 
     // ライブステータスをレスポンス用のオブジェクトに変換
     const liveStatus: Record<string, { isLive: boolean; viewerCount?: number; videoId?: string; title?: string }> = {}
-    if (liveStatusMap) {
-      for (const [channelId, status] of liveStatusMap.entries()) {
-        liveStatus[channelId] = {
-          isLive: status.isLive,
-          viewerCount: status.viewerCount,
-          videoId: status.videoId,
-          title: status.title
-        }
+    liveStreamsMap.forEach((stream, channelId) => {
+      liveStatus[channelId] = {
+        isLive: stream.is_live,
+        viewerCount: stream.viewer_count ?? undefined,
+        videoId: stream.video_id ?? undefined,
+        title: stream.title ?? undefined
       }
-    }
+    })
 
     // ライブ中のみフィルターが有効な場合、ライブ中のチャンネルIDを取得
     let liveChannelIds: string[] | undefined
     if (liveOnly) {
-      if (liveStatusMap) {
-        liveChannelIds = Array.from(liveStatusMap.entries())
-          .filter(([, status]) => status.isLive)
-          .map(([channelId]) => channelId)
-        console.log(`[LiveFilter] Found ${liveChannelIds.length} live channels`)
-      } else {
-        // ライブステータスが全くない場合は空配列を返す
-        console.log('[LiveFilter] No live status cache available (not even stale)')
-        liveChannelIds = []
-      }
+      liveChannelIds = await getLiveChannelIds()
+      console.log(`[LiveFilter] Found ${liveChannelIds.length} live channels from DB`)
     }
 
     if (algorithm === 'collaborative') {
@@ -596,74 +560,27 @@ app.get('/streams/random-multiple', async (c) => {
   }
 })
 
-// ライブ配信状態を取得
+// ライブ配信状態を取得（オンデマンド更新）
 app.get('/streamers/live-status', async (c) => {
   try {
-    // 開発環境ではライブ状態を取得しない
-    const isDevelopment = process.env.NODE_ENV !== 'production'
-    if (isDevelopment) {
-      console.log('[LiveStatus] Development mode - skipping live status fetch')
-      return c.json({ liveStatus: {} })
-    }
+    console.log('[LiveStatus] Fetching live status from DB')
 
-    const apiKey = process.env.YOUTUBE_API_KEY
+    // 必要に応じてライブ状態を更新（5分以上前のデータの場合）
+    await updateLiveStreamsIfNeeded()
 
-    if (!apiKey) {
-      console.error('[LiveStatus] YOUTUBE_API_KEY is not configured')
-      return c.json({ error: 'YouTube API is not configured' }, 503)
-    }
-
-    console.log('[LiveStatus] API Key present:', !!apiKey, 'Length:', apiKey?.length || 0)
-
-    // キャッシュから取得を試みる
-    let liveStatusMap = cache.getLiveStatus()
-
-    if (!liveStatusMap) {
-      // キャッシュミスまたはTTL切れ: 全配信者を取得
-      const streamers = await cache.getStreamers()
-
-      // YouTubeチャンネルIDを持つ配信者のみをフィルタ
-      // TODO: is_live_streamerフラグでさらに絞り込み（200チャンネル程度）
-      const channelIds = streamers
-        .filter(s => s.youtube_channel_id)
-        .map(s => s.youtube_channel_id as string)
-
-      if (channelIds.length === 0) {
-        return c.json({ liveStatus: {} })
-      }
-
-      // RSS + Videos API方式でライブ状態を取得（低コスト）
-      console.log(`[LiveStatus] Fetching live status for ${channelIds.length} channels (RSS + Videos API)`)
-      try {
-        const liveStatusList = await getLiveStreamStatus(channelIds, apiKey)
-
-        // Map形式に変換
-        liveStatusMap = new Map(liveStatusList.map(info => [info.channelId, info]))
-
-        // キャッシュに保存（5分）
-        cache.setLiveStatus(liveStatusMap)
-      } catch (youtubeError) {
-        console.error('[LiveStatus] YouTube API error:', youtubeError)
-
-        // エラー時のフォールバック: 古いキャッシュデータを使う（Stale-While-Revalidate）
-        const staleLiveStatus = cache.getLiveStatusStale()
-        if (staleLiveStatus) {
-          console.log('[LiveStatus] Falling back to stale cache data due to API error')
-          liveStatusMap = staleLiveStatus
-        } else {
-          console.error('[LiveStatus] No stale cache available, returning empty')
-          return c.json({ liveStatus: {} })
-        }
-      }
-    }
+    // DBからライブ状態を取得
+    const liveStreamsMap = await getLiveStreams()
 
     // オブジェクト形式に変換してレスポンス
-    const liveStatus: Record<string, LiveStreamInfo> = {}
-    if (liveStatusMap) {
-      liveStatusMap.forEach((info, channelId) => {
-        liveStatus[channelId] = info
-      })
-    }
+    const liveStatus: Record<string, { isLive: boolean; viewerCount?: number; videoId?: string; title?: string }> = {}
+    liveStreamsMap.forEach((stream, channelId) => {
+      liveStatus[channelId] = {
+        isLive: stream.is_live,
+        viewerCount: stream.viewer_count ?? undefined,
+        videoId: stream.video_id ?? undefined,
+        title: stream.title ?? undefined
+      }
+    })
 
     // ライブステータスは5分キャッシュ（頻繁に変わる可能性がある）
     c.header('Cache-Control', 'public, max-age=300')

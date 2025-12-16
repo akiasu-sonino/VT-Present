@@ -1,11 +1,10 @@
 /**
  * Database utility functions
  * Vercel Postgresへの接続とクエリを管理
- * キャッシュレイヤーを使用してDBアクセスを最小限に抑える
  */
 
 import { sql } from '@vercel/postgres'
-import { cache } from './cache.js'
+import { dbAccess } from './db-access.js'
 
 export interface Streamer {
   id: number
@@ -96,7 +95,7 @@ export interface ContactMessage {
  * @param excludeIds 除外する配信者IDのリスト
  */
 export async function getRandomStreamer(excludeIds: number[] = []): Promise<Streamer | null> {
-  return cache.getRandomStreamer(excludeIds)
+  return dbAccess.getRandomStreamer(excludeIds)
 }
 
 /**
@@ -121,7 +120,7 @@ export async function getRandomStreamers(
   maxFollowers?: number,
   liveChannelIds?: string[]
 ): Promise<Streamer[]> {
-  return cache.getRandomStreamers(count, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers, liveChannelIds)
+  return dbAccess.getRandomStreamers(count, excludeIds, tags, query, tagOperator, minFollowers, maxFollowers, liveChannelIds)
 }
 
 /**
@@ -129,7 +128,7 @@ export async function getRandomStreamers(
  * キャッシュされたデータから検索するため、DBアクセスなし
  */
 export async function getStreamerById(id: number): Promise<Streamer | null> {
-  return cache.getStreamerById(id)
+  return dbAccess.getStreamerById(id)
 }
 
 /**
@@ -146,16 +145,9 @@ export async function createAnonymousUser(anonymousId: string): Promise<Anonymou
 
 /**
  * 匿名ユーザーを取得（存在しない場合は作成）
- * キャッシュを使用してDBアクセスを削減
  */
 export async function getOrCreateAnonymousUser(anonymousId: string): Promise<AnonymousUser> {
-  // キャッシュから取得を試みる
-  const cached = cache.getUser(anonymousId)
-  if (cached) {
-    return cached
-  }
-
-  // キャッシュになければDBから検索
+  // DBから検索
   const existing = await sql<AnonymousUser>`
     SELECT * FROM anonymous_users
     WHERE anonymous_id = ${anonymousId}
@@ -169,17 +161,11 @@ export async function getOrCreateAnonymousUser(anonymousId: string): Promise<Ano
       WHERE anonymous_id = ${anonymousId}
       RETURNING *
     `
-    const user = updated.rows[0]
-
-    // キャッシュに保存
-    cache.setUser(anonymousId, user)
-    return user
+    return updated.rows[0]
   }
 
   // 新規作成
-  const user = await createAnonymousUser(anonymousId)
-  cache.setUser(anonymousId, user)
-  return user
+  return await createAnonymousUser(anonymousId)
 }
 
 /**
@@ -197,12 +183,6 @@ export async function recordPreference(
     RETURNING *
   `
 
-  // キャッシュを更新（次回のgetActionedStreamerIdsでDBアクセス不要に）
-  cache.addUserAction(anonymousUserId, streamerId)
-
-  // プリファレンスキャッシュを無効化（協調フィルタリング用）
-  cache.invalidateUserPreferences(anonymousUserId)
-
   return result.rows[0]
 }
 
@@ -219,12 +199,6 @@ export async function deletePreference(
     WHERE anonymous_user_id = ${anonymousUserId}
       AND streamer_id = ${streamerId}
   `
-
-  // キャッシュから削除
-  cache.removeUserAction(anonymousUserId, streamerId)
-
-  // プリファレンスキャッシュを無効化（協調フィルタリング用）
-  cache.invalidateUserPreferences(anonymousUserId)
 }
 
 /**
@@ -232,7 +206,7 @@ export async function deletePreference(
  * キャッシュから取得するため、頻繁なDBアクセスを回避
  */
 export async function getActionedStreamerIds(anonymousUserId: number): Promise<number[]> {
-  return cache.getUserActionedStreamerIds(anonymousUserId)
+  return dbAccess.getUserActionedStreamerIds(anonymousUserId)
 }
 
 /**
@@ -244,7 +218,7 @@ export async function getStreamersByAction(
   anonymousUserId: number,
   action?: PreferenceAction
 ): Promise<Streamer[]> {
-  return cache.getStreamersByAction(anonymousUserId, action)
+  return dbAccess.getStreamersByAction(anonymousUserId, action)
 }
 
 /**
@@ -252,7 +226,7 @@ export async function getStreamersByAction(
  * キャッシュされたストリーマーデータから抽出するため、DBアクセスなし
  */
 export async function getAllTags(): Promise<string[]> {
-  return cache.getAllTags()
+  return dbAccess.getAllTags()
 }
 
 /**
@@ -260,7 +234,7 @@ export async function getAllTags(): Promise<string[]> {
  * キャッシュされたデータから取得するため、DBアクセスを最小化
  */
 export async function getTagCategories(): Promise<Record<string, string[]>> {
-  return cache.getTagCategories()
+  return dbAccess.getTagCategories()
 }
 
 /**
@@ -332,7 +306,7 @@ export async function linkAnonymousUserToUser(
  * ユーザー情報とJOINして返す（キャッシュ経由、5分TTL）
  */
 export async function getCommentsByStreamerId(streamerId: number): Promise<Comment[]> {
-  return cache.getCommentsByStreamerId(streamerId)
+  return dbAccess.getCommentsByStreamerId(streamerId)
 }
 
 /**
@@ -397,7 +371,7 @@ export async function removeTagFromStreamer(streamerId: number, tag: string): Pr
  * @returns Map<streamerId, score> (LIKE: 1.0, SOSO: 0.3, DISLIKE: -0.5)
  */
 export async function getUserPreferences(userId: number): Promise<Map<number, number>> {
-  return cache.getUserPreferences(userId)
+  return dbAccess.getUserPreferences(userId)
 }
 
 /**
@@ -408,7 +382,7 @@ export async function getUserPreferences(userId: number): Promise<Map<number, nu
  * @returns アクティブユーザーIDの配列
  */
 export async function getActiveUserIds(minActions: number = 5): Promise<number[]> {
-  return cache.getActiveUserIds(minActions)
+  return dbAccess.getActiveUserIds(minActions)
 }
 
 // ========================================
@@ -1028,5 +1002,176 @@ export async function getShareCountByStreamerId(streamerId: number): Promise<num
   } catch (error) {
     console.error('Error getting share count:', error)
     return 0
+  }
+}
+
+// ========================================
+// ライブ配信状態管理
+// ========================================
+
+export interface LiveStream {
+  channel_id: string
+  is_live: boolean
+  viewer_count: number | null
+  video_id: string | null
+  title: string | null
+  updated_at: Date
+}
+
+/**
+ * ライブ配信状態をDBに一括保存（UPSERT）
+ * Vercel Cronから5分間隔で呼び出される
+ * @param liveStreams ライブ配信状態の配列
+ */
+export async function upsertLiveStreams(liveStreams: LiveStream[]): Promise<void> {
+  try {
+    if (liveStreams.length === 0) {
+      console.log('[DB] No live streams to upsert')
+      return
+    }
+
+    // トランザクションで一括UPSERT
+    const values = liveStreams.map(stream =>
+      `('${stream.channel_id}', ${stream.is_live}, ${stream.viewer_count ?? 'NULL'}, ${stream.video_id ? `'${stream.video_id}'` : 'NULL'}, ${stream.title ? `'${stream.title.replace(/'/g, "''")}'` : 'NULL'}, NOW())`
+    ).join(',')
+
+    await sql.query(`
+      INSERT INTO live_streams (channel_id, is_live, viewer_count, video_id, title, updated_at)
+      VALUES ${values}
+      ON CONFLICT (channel_id)
+      DO UPDATE SET
+        is_live = EXCLUDED.is_live,
+        viewer_count = EXCLUDED.viewer_count,
+        video_id = EXCLUDED.video_id,
+        title = EXCLUDED.title,
+        updated_at = EXCLUDED.updated_at
+    `)
+
+    console.log(`[DB] Upserted ${liveStreams.length} live stream statuses`)
+  } catch (error) {
+    console.error('Error upserting live streams:', error)
+    throw error
+  }
+}
+
+/**
+ * DBからライブ配信状態を取得
+ * @returns チャンネルIDをキーとしたライブ配信状態のMap
+ */
+export async function getLiveStreams(): Promise<Map<string, LiveStream>> {
+  try {
+    const result = await sql<LiveStream>`
+      SELECT channel_id, is_live, viewer_count, video_id, title, updated_at
+      FROM live_streams
+      WHERE updated_at > NOW() - INTERVAL '15 minutes'
+    `
+
+    const liveStreamsMap = new Map<string, LiveStream>()
+    result.rows.forEach(stream => {
+      liveStreamsMap.set(stream.channel_id, stream)
+    })
+
+    console.log(`[DB] Retrieved ${liveStreamsMap.size} live stream statuses`)
+    return liveStreamsMap
+  } catch (error) {
+    console.error('Error getting live streams:', error)
+    return new Map()
+  }
+}
+
+/**
+ * DBからライブ中のチャンネルIDリストを取得
+ * @returns ライブ中のチャンネルIDの配列
+ */
+export async function getLiveChannelIds(): Promise<string[]> {
+  try {
+    const result = await sql<{ channel_id: string }>`
+      SELECT channel_id
+      FROM live_streams
+      WHERE is_live = true
+        AND updated_at > NOW() - INTERVAL '15 minutes'
+    `
+
+    const channelIds = result.rows.map(row => row.channel_id)
+    console.log(`[DB] Retrieved ${channelIds.length} live channel IDs`)
+    return channelIds
+  } catch (error) {
+    console.error('Error getting live channel IDs:', error)
+    return []
+  }
+}
+
+/**
+ * ライブ配信状態が古い場合に更新する（オンデマンド更新）
+ * - 最終更新が5分以上前、またはデータが存在しない場合に更新
+ * - YouTube APIを呼び出してDBを更新
+ * @returns 更新が実行されたかどうか
+ */
+export async function updateLiveStreamsIfNeeded(): Promise<boolean> {
+  try {
+    // 最終更新時刻を確認
+    const result = await sql<{ updated_at: Date }>`
+      SELECT MAX(updated_at) as updated_at
+      FROM live_streams
+    `
+
+    const lastUpdated = result.rows[0]?.updated_at
+    const now = Date.now()
+    const fiveMinutesAgo = now - 5 * 60 * 1000
+
+    // データが存在しない、または5分以上前の場合に更新
+    const shouldUpdate = !lastUpdated || new Date(lastUpdated).getTime() < fiveMinutesAgo
+
+    if (!shouldUpdate) {
+      console.log('[DB] Live streams data is fresh, skipping update')
+      return false
+    }
+
+    console.log('[DB] Live streams data is stale, updating...')
+
+    // YouTube API Keyを取得
+    const apiKey = process.env.YOUTUBE_API_KEY
+    if (!apiKey) {
+      console.error('[DB] YOUTUBE_API_KEY is not configured')
+      return false
+    }
+
+    // 全配信者を取得
+    const streamers = await dbAccess.getStreamers()
+    const channelIds = streamers
+      .filter(s => s.youtube_channel_id)
+      .map(s => s.youtube_channel_id as string)
+
+    if (channelIds.length === 0) {
+      console.log('[DB] No channels to check')
+      return false
+    }
+
+    console.log(`[DB] Fetching live status for ${channelIds.length} channels`)
+
+    // YouTube APIからライブ状態を取得（動的importが必要）
+    const { getLiveStreamStatus } = await import('./youtube.js')
+    const liveStreamInfoList = await getLiveStreamStatus(channelIds, apiKey)
+
+    // LiveStreamInfo[] を LiveStream[] に変換
+    const liveStreams: LiveStream[] = liveStreamInfoList.map(info => ({
+      channel_id: info.channelId,
+      is_live: info.isLive,
+      viewer_count: info.viewerCount ?? null,
+      video_id: info.videoId ?? null,
+      title: info.title ?? null,
+      updated_at: new Date()
+    }))
+
+    // DBに保存
+    await upsertLiveStreams(liveStreams)
+
+    const liveCount = liveStreams.filter(s => s.is_live).length
+    console.log(`[DB] Updated ${liveStreams.length} live stream statuses (${liveCount} live)`)
+
+    return true
+  } catch (error) {
+    console.error('[DB] Error updating live streams:', error)
+    return false
   }
 }
