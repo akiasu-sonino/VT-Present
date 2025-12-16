@@ -188,15 +188,18 @@ class DataAccess {
    */
   async getTagCategories(): Promise<Record<string, string[]>> {
     console.log('[DB] Fetching tag categories')
-    const result = await sql<{ category: string; tags: string[] }>`
-      SELECT category, tags
+    const result = await sql<{ category_name: string; tag_name: string }>`
+      SELECT category_name, tag_name
       FROM tag_categories
-      ORDER BY display_order ASC
+      ORDER BY sort_order ASC
     `
 
     const categories: Record<string, string[]> = {}
     result.rows.forEach(row => {
-      categories[row.category] = row.tags
+      if (!categories[row.category_name]) {
+        categories[row.category_name] = []
+      }
+      categories[row.category_name].push(row.tag_name)
     })
 
     return categories
