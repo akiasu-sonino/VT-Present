@@ -2,10 +2,8 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, saveQuizResultsForUser, saveTagSelectionForUser, completeOnboardingForUser, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId, upsertLiveStreams, getLiveStreams, getLiveChannelIds, updateLiveStreamsIfNeeded, type LiveStream } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, saveQuizResultsForUser, saveTagSelectionForUser, completeOnboardingForUser, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId, upsertLiveStreams, getLiveStreams, getLiveChannelIds, updateLiveStreamsIfNeeded, createComment, createContactMessage, type LiveStream } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
-import { dbAccess } from './lib/db-access.js'
-import { writeCache } from './lib/write-cache.js'
 import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessionCookie, getSessionUserId, clearSession, isDevelopment, createMockUser } from './lib/oauth.js'
 import { getLiveStreamStatus, type LiveStreamInfo } from './lib/youtube.js'
 import { createAuditLog } from './lib/audit-log.js'
@@ -767,8 +765,8 @@ app.post('/comments', async (c) => {
       return c.json({ error: 'Comment is too long (max 1000 characters)' }, 400)
     }
 
-    // キャッシュに追加（定期的にDBに書き込まれる）
-    writeCache.addComment(streamerId, userId, content.trim(), commentType)
+    // DBに直接書き込み
+    await createComment(streamerId, userId, content.trim(), commentType)
 
     // 監査ログを記録（荒らし対策）
     const ipAddress = c.req.header('x-forwarded-for') || c.req.header('x-real-ip')
@@ -790,8 +788,8 @@ app.post('/comments', async (c) => {
     return c.json({
       success: true,
       message: commentType === 'recommendation'
-        ? 'Recommendation will be posted shortly'
-        : 'Comment will be posted shortly'
+        ? 'Recommendation posted successfully'
+        : 'Comment posted successfully'
     })
   } catch (error) {
     console.error('Error posting comment:', error)
@@ -980,12 +978,12 @@ app.post('/contact', async (c) => {
       return c.json({ error: 'Message is too long (max 5000 characters)' }, 400)
     }
 
-    // キャッシュに追加（定期的にDBに書き込まれる）
-    writeCache.addContactMessage(userId, subject?.trim() || null, message.trim())
+    // DBに直接書き込み
+    await createContactMessage(userId, subject?.trim() || null, message.trim())
 
     return c.json({
       success: true,
-      message: 'Your message will be sent shortly'
+      message: 'Your message has been sent successfully'
     })
   } catch (error) {
     console.error('Error sending contact message:', error)
