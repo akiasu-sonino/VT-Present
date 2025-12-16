@@ -97,7 +97,7 @@ export interface ContactMessage {
 /**
  * 全ストリーマーをDBから取得
  */
-async function getStreamers(): Promise<Streamer[]> {
+export async function getStreamers(): Promise<Streamer[]> {
   console.log('[DB] Fetching all streamers')
   const result = await sql<Streamer>`SELECT * FROM streamers`
   return result.rows
