@@ -16,21 +16,21 @@ function LoginPromptModal({ isOpen, onLogin, onContinueAnonymous }: LoginPromptM
           <div className="login-prompt-icon">👋</div>
           <h2 className="login-prompt-title">OshiStream へようこそ！</h2>
           <p className="login-prompt-description">
-            ログインすると、好みの配信者をパーソナライズドおすすめで見つけやすくなります
+            Googleログインすると以下の機能が使えます。是非ログインして使ってください。
           </p>
 
           <div className="login-prompt-features">
             <div className="feature-item">
               <span className="feature-icon">✓</span>
-              <span>コメント投稿</span>
+              <span>コメント投稿・交流</span>
             </div>
             <div className="feature-item">
               <span className="feature-icon">✓</span>
-              <span>タグ編集</span>
+              <span>タグの追加・編集</span>
             </div>
             <div className="feature-item">
               <span className="feature-icon">✓</span>
-              <span>パーソナライズド推薦</span>
+              <span>おすすめ配信者の推薦</span>
             </div>
           </div>
 
