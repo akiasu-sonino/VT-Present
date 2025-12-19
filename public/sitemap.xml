@@ -5,5 +5,50 @@
     <loc>https://www.oshistream.jp/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <lastmod>2025-12-17</lastmod>
   </url>
+
+  <!-- 主要なタグページ（クエリパラメータ形式） -->
+  <url>
+    <loc>https://www.oshistream.jp/?tags=VTuber</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://www.oshistream.jp/?tags=ASMR</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://www.oshistream.jp/?tags=ゲーム実況</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://www.oshistream.jp/?tags=歌ってみた</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://www.oshistream.jp/?tags=雑談</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.oshistream.jp/?tags=FPS</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.oshistream.jp/?tags=にじさんじ</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.oshistream.jp/?tags=ホロライブ</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- 動的配信者ページは別途/api/sitemap-dynamicで生成 -->
 </urlset>

@@ -43,6 +43,7 @@
   font-weight: 800;
   margin-bottom: 10px;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  line-height: 1.2;
 }
 
 .subtitle {
@@ -50,6 +51,18 @@
   opacity: 0.95;
   font-weight: 300;
   margin: 0;
+  line-height: 1.4;
+}
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+  .title {
+    font-size: 1.8rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
 }
 
 .tab-navigation {
@@ -560,6 +573,102 @@
   line-height: 1.5;
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+/* リアクションボタンコンテナ */
+.comment-reactions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* リアクションボタン */
+.reaction-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background-color: #ffffff;
+  color: #718096;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 2.5rem;
+}
+
+.reaction-btn:hover:not(:disabled) {
+  background-color: #f7fafc;
+  border-color: #cbd5e0;
+  transform: scale(1.05);
+}
+
+.reaction-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* アクティブ状態（ユーザーがリアクション済み） */
+.reaction-btn.active {
+  background-color: #667eea;
+  border-color: #667eea;
+  color: white;
+  font-weight: 600;
+}
+
+.reaction-btn.active:hover {
+  background-color: #5568d3;
+  border-color: #5568d3;
+}
+
+/* カウント表示 */
+.reaction-count {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* フォーカス状態の明確化（アクセシビリティ） */
+.reaction-btn:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+  .comment-reactions {
+    gap: 0.35rem;
+  }
+
+  .reaction-btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.85rem;
+    min-width: 2.25rem;
+  }
+}
+
+/* 縮小モーション設定への対応 */
+@media (prefers-reduced-motion: reduce) {
+  .reaction-btn {
+    transition: none;
+  }
+
+  .reaction-btn:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ハイコントラストモード対応 */
+@media (prefers-contrast: high) {
+  .reaction-btn {
+    border-width: 2px;
+  }
+
+  .reaction-btn.active {
+    border-width: 3px;
+  }
 }
 
 /* Footer */

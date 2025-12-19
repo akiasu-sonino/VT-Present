@@ -40,6 +40,8 @@ interface Comment {
   user_id: number
   content: string
   created_at: string
+  reaction_count: number
+  user_reaction?: 'like' | 'helpful' | 'heart' | 'fire' | null
   user?: User
 }
 
@@ -333,12 +335,15 @@ function App() {
   const handleSubmitComment = async () => {
     if (!commentText.trim() || !selectedStreamer || !currentUser) return
 
+    const tempId = Date.now() // 一時的なID
     const newComment: Comment = {
-      id: Date.now(), // 一時的なID
+      id: tempId,
       streamer_id: selectedStreamer.id,
       user_id: currentUser.id,
       content: commentText.trim(),
       created_at: new Date().toISOString(),
+      reaction_count: 0,
+      user_reaction: null,
       user: currentUser
     }
 
@@ -360,15 +365,19 @@ function App() {
 
       if (!response.ok) {
         // エラーの場合は追加したコメントを削除
-        setComments(prev => prev.filter(c => c.id !== newComment.id))
+        setComments(prev => prev.filter(c => c.id !== tempId))
         const data = await response.json()
         alert(data.error || 'コメント投稿に失敗しました')
         setCommentText(newComment.content) // テキストを戻す
+      } else {
+        // 成功時: サーバーから返ってきた正しいコメントデータで更新
+        const data = await response.json()
+        setComments(prev => prev.map(c => c.id === tempId ? data.comment : c))
       }
     } catch (err) {
       console.error('Error submitting comment:', err)
       // エラーの場合は追加したコメントを削除
-      setComments(prev => prev.filter(c => c.id !== newComment.id))
+      setComments(prev => prev.filter(c => c.id !== tempId))
       alert('コメント投稿に失敗しました')
       setCommentText(newComment.content) // テキストを戻す
     } finally {
@@ -404,6 +413,87 @@ function App() {
       alert('タグの追加に失敗しました')
     } finally {
       setAddingTag(false)
+    }
+  }
+
+  const handleReaction = async (commentId: number, reactionType: 'like' | 'helpful' | 'heart' | 'fire') => {
+    if (!currentUser) {
+      setShowLoginPrompt(true)
+      return
+    }
+
+    const comment = comments.find(c => c.id === commentId)
+    if (!comment) {
+      console.error('Comment not found:', commentId)
+      return
+    }
+
+    const previousReaction = comment.user_reaction
+    const previousCount = comment.reaction_count
+    const isRemovingReaction = previousReaction === reactionType
+
+    // 楽観的UI更新
+    setComments(prev => prev.map(c => {
+      if (c.id === commentId) {
+        return {
+          ...c,
+          user_reaction: isRemovingReaction ? null : reactionType,
+          reaction_count: isRemovingReaction
+            ? c.reaction_count - 1
+            : (previousReaction ? c.reaction_count : c.reaction_count + 1)
+        }
+      }
+      return c
+    }))
+
+    try {
+      const endpoint = `/api/comments/${commentId}/reactions`
+
+      if (isRemovingReaction) {
+        const response = await fetch(endpoint, { method: 'DELETE' })
+
+        if (response.status === 401) {
+          setShowLoginPrompt(true)
+          throw new Error('Authentication required')
+        }
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Failed to remove reaction')
+        }
+      } else {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reactionType })
+        })
+
+        if (response.status === 401) {
+          setShowLoginPrompt(true)
+          throw new Error('Authentication required')
+        }
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Failed to add reaction')
+        }
+      }
+    } catch (err) {
+      console.error('Error handling reaction:', err)
+
+      // ロールバック
+      setComments(prev => prev.map(c => {
+        if (c.id === commentId) {
+          return {
+            ...c,
+            user_reaction: previousReaction,
+            reaction_count: previousCount
+          }
+        }
+        return c
+      }))
+
+      alert('リアクションの更新に失敗しました。もう一度お試しください。')
     }
   }
 
@@ -494,8 +584,8 @@ function App() {
         <header className="header">
           <div className="header-top">
             <div className="header-branding">
-              <h1 className="title">OshiStream</h1>
-              <p className="subtitle">新たな推しと出会うプラットフォーム</p>
+              <h1 className="title">OshiStream - VTuber・配信者一覧</h1>
+              <p className="subtitle">VTuber、ASMR、ゲーム実況など多彩な配信者を発見</p>
             </div>
             <UserMenu onUserChange={setCurrentUser} />
           </div>
@@ -769,6 +859,22 @@ function App() {
                         </span>
                       </div>
                       <p className="comment-content">{comment.content}</p>
+
+                      {/* リアクションボタン */}
+                      <div className="comment-reactions">
+                        <button
+                          className={`reaction-btn ${comment.user_reaction === 'like' ? 'active' : ''}`}
+                          onClick={() => handleReaction(comment.id, 'like')}
+                          disabled={!currentUser}
+                          aria-label={`いいね${comment.user_reaction === 'like' ? '済み' : ''}`}
+                          aria-pressed={comment.user_reaction === 'like'}
+                          title={!currentUser ? 'ログインしてリアクション' : 'いいね'}
+                        >
+                          👍 {comment.reaction_count > 0 && (
+                            <span className="reaction-count">{comment.reaction_count}</span>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}

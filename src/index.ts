@@ -31,18 +31,28 @@ function generateStreamerPageHTML(
   recommendationComment?: any,
   baseUrl: string = 'https://www.oshistream.jp'
 ): string {
+  // タグからVTuber、ASMR、ゲーム実況などのキーワードを抽出
+  const tags = streamer.tags || []
+  const keywordTags = tags.filter((tag: string) =>
+    ['VTuber', 'ASMR', 'ゲーム実況', '歌ってみた', 'にじさんじ', 'ホロライブ'].includes(tag)
+  )
+  const tagSuffix = keywordTags.length > 0 ? ` | ${keywordTags.slice(0, 2).join('・')}` : ''
+
   const title = recommendationComment
-    ? `${streamer.name}をおすすめ！ - OshiStream`
-    : `${streamer.name} - OshiStream`
+    ? `${streamer.name}をおすすめ！${tagSuffix} - VTuber・配信者一覧 OshiStream`
+    : `${streamer.name}${tagSuffix} - VTuber・配信者一覧 OshiStream`
 
   const description = recommendationComment
     ? recommendationComment.content.substring(0, 150)
-    : streamer.description?.substring(0, 150) || `${streamer.name}の配信をチェック！`
+    : streamer.description?.substring(0, 150) || `${streamer.name}の配信をチェック！VTuber・配信者一覧のOshiStreamで新たな推しを発見。`
 
   const ogImage = streamer.avatar_url || `${baseUrl}/ogp.png`
   const pageUrl = recommendationComment
     ? `${baseUrl}/streamer/${streamer.id}?comment=${recommendationComment.id}`
     : `${baseUrl}/streamer/${streamer.id}`
+
+  // メタキーワード生成
+  const keywords = ['VTuber', '配信者', 'ストリーマー', streamer.name, ...tags.slice(0, 5)].join(',')
 
   return `<!DOCTYPE html>
 <html lang="ja">
@@ -50,6 +60,8 @@ function generateStreamerPageHTML(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
+  <meta name="description" content="${description}">
+  <meta name="keywords" content="${keywords}">
   <!-- Google AdSense -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2390171962684817"
      crossorigin="anonymous"></script>
@@ -148,6 +160,48 @@ mainApp.get('/streamer/:id', async (c) => {
   } catch (error) {
     console.error('Error loading streamer page:', error)
     return c.text('Internal server error', 500)
+  }
+})
+
+// 動的サイトマップ生成エンドポイント（配信者ページを含む）
+mainApp.get('/sitemap-dynamic.xml', async (c) => {
+  try {
+    const { pool } = await import('./lib/db.js')
+
+    // 全配信者を取得（最新100件）
+    const result = await pool.query(`
+      SELECT id, name, updated_at
+      FROM streamers
+      ORDER BY updated_at DESC
+      LIMIT 100
+    `)
+
+    const streamers = result.rows
+    const baseUrl = `${c.req.header('x-forwarded-proto') || 'https'}://${c.req.header('host')}`
+
+    // XMLを生成
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+
+    // 各配信者ページを追加
+    for (const streamer of streamers) {
+      const lastmod = streamer.updated_at ? new Date(streamer.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+      xml += '  <url>\n'
+      xml += `    <loc>${baseUrl}/streamer/${streamer.id}</loc>\n`
+      xml += `    <lastmod>${lastmod}</lastmod>\n`
+      xml += '    <changefreq>weekly</changefreq>\n'
+      xml += '    <priority>0.7</priority>\n'
+      xml += '  </url>\n'
+    }
+
+    xml += '</urlset>'
+
+    c.header('Content-Type', 'application/xml')
+    c.header('Cache-Control', 'public, max-age=3600') // 1時間キャッシュ
+    return c.text(xml)
+  } catch (error) {
+    console.error('Error generating dynamic sitemap:', error)
+    return c.text('Error generating sitemap', 500)
   }
 })
 
@@ -728,7 +782,8 @@ app.get('/comments/:streamerId', async (c) => {
       return c.json({ error: 'Invalid streamer ID' }, 400)
     }
 
-    const comments = await getCommentsByStreamerId(streamerId)
+    const userId = getSessionUserId(c)
+    const comments = await getCommentsByStreamerId(streamerId, userId)
 
     return c.json({ comments })
   } catch (error) {

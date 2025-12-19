@@ -4,6 +4,9 @@ Allow: /
 # クロール不要なパス
 Disallow: /api/
 Disallow: /api/auth/
+Disallow: /terms
+Disallow: /privacy
 
 # Sitemap
 Sitemap: https://www.oshistream.jp/sitemap.xml
+Sitemap: https://www.oshistream.jp/sitemap-dynamic.xml

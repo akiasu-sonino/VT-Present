@@ -413,12 +413,22 @@ export async function linkAnonymousUserToUser(
 /**
  * 配信者のコメント一覧を取得
  */
-export async function getCommentsByStreamerId(streamerId: number): Promise<Comment[]> {
+export async function getCommentsByStreamerId(
+  streamerId: number,
+  currentUserId?: number
+): Promise<Comment[]> {
   console.log(`[DB] Fetching comments for streamer ${streamerId}`)
   const result = await sql`
-    SELECT c.*, u.name as user_name, u.email as user_email, u.avatar_url as user_avatar_url
+    SELECT
+      c.*,
+      u.name as user_name,
+      u.email as user_email,
+      u.avatar_url as user_avatar_url,
+      COALESCE(c.reaction_count, 0) as reaction_count,
+      cr.reaction_type as user_reaction
     FROM comments c
     LEFT JOIN users u ON c.user_id = u.id
+    LEFT JOIN comment_reactions cr ON c.id = cr.comment_id AND cr.user_id = ${currentUserId || null}
     WHERE c.streamer_id = ${streamerId}
     ORDER BY c.created_at DESC
   `
@@ -430,6 +440,8 @@ export async function getCommentsByStreamerId(streamerId: number): Promise<Comme
     content: row.content,
     created_at: row.created_at,
     comment_type: row.comment_type,
+    reaction_count: row.reaction_count || 0,
+    user_reaction: row.user_reaction || null,
     user: row.user_id ? {
       id: row.user_id,
       name: row.user_name,
