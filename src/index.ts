@@ -39,12 +39,12 @@ function generateStreamerPageHTML(
   const tagSuffix = keywordTags.length > 0 ? ` | ${keywordTags.slice(0, 2).join('・')}` : ''
 
   const title = recommendationComment
-    ? `${streamer.name}をおすすめ！${tagSuffix} - VTuber・配信者一覧 OshiStream`
-    : `${streamer.name}${tagSuffix} - VTuber・配信者一覧 OshiStream`
+    ? `${streamer.name}をおすすめ！${tagSuffix} - VTuber・配信者一覧 ゆとりぃま～ず`
+    : `${streamer.name}${tagSuffix} - VTuber・配信者一覧 ゆとりぃま～ず`
 
   const description = recommendationComment
     ? recommendationComment.content.substring(0, 150)
-    : streamer.description?.substring(0, 150) || `${streamer.name}の配信をチェック！VTuber・配信者一覧のOshiStreamで新たな推しを発見。`
+    : streamer.description?.substring(0, 150) || `${streamer.name}の配信をチェック！VTuber・配信者一覧のゆとりぃま～ずで新たな推しを発見。`
 
   const ogImage = streamer.avatar_url || `${baseUrl}/ogp.png`
   const pageUrl = recommendationComment
@@ -71,7 +71,7 @@ function generateStreamerPageHTML(
   <meta property="og:title" content="${title}">
   <meta property="og:description" content="${description}">
   <meta property="og:image" content="${ogImage}">
-  <meta property="og:site_name" content="OshiStream">
+  <meta property="og:site_name" content="ゆとりぃま～ず">
   <meta property="og:locale" content="ja_JP">
 
   <!-- Twitter Card -->
@@ -1043,6 +1043,115 @@ app.post('/contact', async (c) => {
   } catch (error) {
     console.error('Error sending contact message:', error)
     return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// ========================================
+// 配信者登録リクエスト機能
+// ========================================
+
+// 配信者登録リクエスト（ログインユーザー限定）
+app.post('/streamers/request', async (c) => {
+  try {
+    const userId = getSessionUserId(c)
+
+    if (!userId) {
+      return c.json({ error: 'ログインが必要です' }, 401)
+    }
+
+    const body = await c.req.json<{
+      youtubeHandle: string
+      requesterType: 'streamer' | 'supporter'
+      additionalNotes?: string
+    }>()
+
+    const { youtubeHandle, requesterType, additionalNotes } = body
+
+    // バリデーション
+    if (!youtubeHandle || youtubeHandle.trim().length === 0) {
+      return c.json({ error: 'YouTubeハンドル名は必須です' }, 400)
+    }
+
+    // YouTubeハンドルの形式チェック（@を含む場合は除去）
+    const cleanHandle = youtubeHandle.trim().replace(/^@/, '')
+
+    if (cleanHandle.length === 0) {
+      return c.json({ error: '有効なYouTubeハンドル名を入力してください' }, 400)
+    }
+
+    if (!requesterType || !['streamer', 'supporter'].includes(requesterType)) {
+      return c.json({ error: '申請者タイプが不正です' }, 400)
+    }
+
+    // スクリプトを実行（関数として直接呼び出し）
+    console.log(`[Request] Executing insertYoutubeStreamer for: ${cleanHandle}`)
+    console.log(`  Requester type: ${requesterType}`)
+    if (additionalNotes) {
+      console.log(`  Notes: ${additionalNotes}`)
+    }
+
+    try {
+      // TypeScript関数を直接インポートして実行
+      const { insertYoutubeStreamer } = await import('../tools/insert-youtube-streamer.js')
+
+      await insertYoutubeStreamer(cleanHandle)
+
+      // 監査ログを記録
+      const ipAddress = c.req.header('x-forwarded-for') || c.req.header('x-real-ip')
+      const userAgent = c.req.header('user-agent')
+
+      await createAuditLog({
+        userId,
+        action: 'streamer_request_submitted',
+        resourceType: 'streamer_request',
+        details: {
+          youtubeHandle: cleanHandle,
+          requesterType,
+          additionalNotes: additionalNotes || null,
+          status: 'success'
+        },
+        ipAddress,
+        userAgent
+      })
+
+      return c.json({
+        success: true,
+        message: '登録リクエストを受け付けました。配信者情報がデータベースに追加されました。',
+        details: {
+          youtubeHandle: cleanHandle,
+          requesterType
+        }
+      })
+    } catch (execError: any) {
+      console.error('[Request] Script execution error:', execError)
+
+      // エラー時も監査ログを記録
+      const ipAddress = c.req.header('x-forwarded-for') || c.req.header('x-real-ip')
+      const userAgent = c.req.header('user-agent')
+      await createAuditLog({
+        userId,
+        action: 'streamer_request_error',
+        resourceType: 'streamer_request',
+        details: {
+          youtubeHandle: cleanHandle,
+          requesterType,
+          additionalNotes: additionalNotes || null,
+          status: 'error',
+          error: execError.message
+        },
+        ipAddress,
+        userAgent
+      })
+
+      return c.json({
+        success: false,
+        error: 'スクリプトの実行中にエラーが発生しました',
+        details: execError.message
+      }, 500)
+    }
+  } catch (error) {
+    console.error('Error processing streamer request:', error)
+    return c.json({ error: '内部サーバーエラー' }, 500)
   }
 })
 

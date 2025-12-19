@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, KeyboardEvent, useEffect } from 'react'
 import '../styles/SearchBox.css'
 
 interface SearchBoxProps {
@@ -9,9 +9,26 @@ interface SearchBoxProps {
 
 function SearchBox({ value, onChange, placeholder = '配信者名や説明で検索...' }: SearchBoxProps) {
   const [isFocused, setIsFocused] = useState(false)
+  const [inputValue, setInputValue] = useState(value)
+
+  // 外部からvalueが変更された場合に同期
+  useEffect(() => {
+    setInputValue(value)
+  }, [value])
 
   const handleClear = () => {
+    setInputValue('')
     onChange('')
+  }
+
+  const handleSearch = () => {
+    onChange(inputValue)
+  }
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch()
+    }
   }
 
   return (
@@ -21,13 +38,14 @@ function SearchBox({ value, onChange, placeholder = '配信者名や説明で検
         <input
           type="text"
           className="search-input"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
         />
-        {value && (
+        {inputValue && (
           <button
             className="clear-button"
             onClick={handleClear}
@@ -37,6 +55,14 @@ function SearchBox({ value, onChange, placeholder = '配信者名や説明で検
             ✕
           </button>
         )}
+        <button
+          className="search-button"
+          onClick={handleSearch}
+          type="button"
+          aria-label="検索"
+        >
+          検索
+        </button>
       </div>
     </div>
   )

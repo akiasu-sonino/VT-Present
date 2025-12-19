@@ -7,9 +7,9 @@ interface BasicsFeaturesStepProps {
 function BasicsFeaturesStep({ onComplete }: BasicsFeaturesStepProps) {
   return (
     <div className="onboarding-step basics-features-step">
-      <h2 className="step-title">OshiStream へようこそ！</h2>
+      <h2 className="step-title">ゆとりぃま～ず へようこそ！</h2>
       <p className="step-description">
-        OshiStreamは、YouTubeやTwitchの配信者を発見・共有できるサービスです。
+        ゆとりぃま～ずは、YouTubeやTwitchなどプラットフォームで配信・動画投稿する配信者を発見・共有できるサービスです。
       </p>
 
       <div className="features-grid">

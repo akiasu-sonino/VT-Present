@@ -149,7 +149,7 @@ function OnboardingWizard({ isOpen, onComplete, onSkip }: OnboardingWizardProps)
         )}
 
         <div className="onboarding-header">
-          <h1 className="onboarding-title">ようこそ OshiStream へ</h1>
+          <h1 className="onboarding-title">ようこそ ゆとりぃま～ず へ</h1>
           <div className="step-indicator">
             ステップ {getStepNumber()} / 4
           </div>

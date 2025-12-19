@@ -11,6 +11,7 @@ import { AdMaxBanner } from './components/AdMaxBanner'
 import { AdMaxBannerMobile } from './components/AdMaxBannerMobile'
 import OnboardingWizard from './components/onboarding/OnboardingWizard'
 import LoginPromptModal from './components/onboarding/LoginPromptModal'
+import StreamerRequestForm from './components/StreamerRequestForm'
 import './styles/App.css'
 
 interface Streamer {
@@ -52,7 +53,7 @@ interface LiveInfo {
   title?: string
 }
 
-type TabType = 'discover' | 'preferences'
+type TabType = 'discover' | 'preferences' | 'request'
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('discover')
@@ -584,7 +585,7 @@ function App() {
         <header className="header">
           <div className="header-top">
             <div className="header-branding">
-              <h1 className="title">OshiStream - VTuber・配信者一覧</h1>
+              <h1 className="title">ゆとりぃま～ず - VTuber・配信者一覧</h1>
               <p className="subtitle">VTuber、ASMR、ゲーム実況など多彩な配信者を発見</p>
             </div>
             <UserMenu onUserChange={setCurrentUser} />
@@ -602,6 +603,12 @@ function App() {
               onClick={() => setActiveTab('preferences')}
             >
               マイリスト
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'request' ? 'active' : ''}`}
+              onClick={() => setActiveTab('request')}
+            >
+              登録申請
             </button>
           </nav>
         </header>
@@ -641,83 +648,83 @@ function App() {
         </div>
         */}
         <main className="main">
-        {activeTab === 'discover' && (
-          <>
-            <div className="filters-container">
-              <div className="filters-row">
-                <FilterPresets
-                  onApplyPreset={(preset: FilterPreset) => {
-                    setSelectedTags(preset.tags)
-                    setTagOperator(preset.tagOperator)
-                    setSearchQuery(preset.searchQuery)
-                    setMinFollowers(preset.minFollowers)
-                    setMaxFollowers(preset.maxFollowers)
-                  }}
-                  currentFilters={{
-                    tags: selectedTags,
-                    tagOperator,
-                    searchQuery,
-                    minFollowers,
-                    maxFollowers
-                  }}
-                />
-                <TagFilter
-                  selectedTags={selectedTags}
-                  onTagsChange={setSelectedTags}
-                  tagOperator={tagOperator}
-                  onTagOperatorChange={setTagOperator}
-                />
-                <FollowerFilter
-                  minFollowers={minFollowers}
-                  maxFollowers={maxFollowers}
-                  onMinFollowersChange={setMinFollowers}
-                  onMaxFollowersChange={setMaxFollowers}
-                />
-                <button
-                  className={`live-filter-btn ${showLiveOnly ? 'active' : ''}`}
-                  onClick={() => setShowLiveOnly(!showLiveOnly)}
-                >
-                  {showLiveOnly ? 'ライブ中 ●' : 'ライブ中のみ'}
-                </button>
+          {activeTab === 'discover' && (
+            <>
+              <div className="filters-container">
+                <div className="filters-row">
+                  <FilterPresets
+                    onApplyPreset={(preset: FilterPreset) => {
+                      setSelectedTags(preset.tags)
+                      setTagOperator(preset.tagOperator)
+                      setSearchQuery(preset.searchQuery)
+                      setMinFollowers(preset.minFollowers)
+                      setMaxFollowers(preset.maxFollowers)
+                    }}
+                    currentFilters={{
+                      tags: selectedTags,
+                      tagOperator,
+                      searchQuery,
+                      minFollowers,
+                      maxFollowers
+                    }}
+                  />
+                  <TagFilter
+                    selectedTags={selectedTags}
+                    onTagsChange={setSelectedTags}
+                    tagOperator={tagOperator}
+                    onTagOperatorChange={setTagOperator}
+                  />
+                  <FollowerFilter
+                    minFollowers={minFollowers}
+                    maxFollowers={maxFollowers}
+                    onMinFollowersChange={setMinFollowers}
+                    onMaxFollowersChange={setMaxFollowers}
+                  />
+                  <button
+                    className={`live-filter-btn ${showLiveOnly ? 'active' : ''}`}
+                    onClick={() => setShowLiveOnly(!showLiveOnly)}
+                  >
+                    {showLiveOnly ? 'ライブ中 ●' : 'ライブ中のみ'}
+                  </button>
+                </div>
+                <div className="search-row">
+                  <SearchBox
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="配信者名や説明で検索..."
+                  />
+                </div>
               </div>
-              <div className="search-row">
-                <SearchBox
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder="配信者名や説明で検索..."
-                />
-              </div>
-            </div>
 
-            {loading && (
-              <div className="loading">
-                <p>配信者を読み込み中...</p>
-              </div>
-            )}
+              {loading && (
+                <div className="loading">
+                  <p>配信者を読み込み中...</p>
+                </div>
+              )}
 
-            {error && (
-              <div className="error">
-                <p>{error}</p>
-                <button onClick={fetchStreamers}>再読み込み</button>
-              </div>
-            )}
+              {error && (
+                <div className="error">
+                  <p>{error}</p>
+                  <button onClick={fetchStreamers}>再読み込み</button>
+                </div>
+              )}
 
-            {!loading && !error && streamers.length === 0 && (
-              <div className="empty-state">
-                <p>条件に合う配信者が見つかりませんでした</p>
-                <button onClick={() => {
-                  setSelectedTags([])
-                  setTagOperator('OR')
-                  setSearchQuery('')
-                  setMinFollowers(0)
-                  setMaxFollowers(Number.MAX_SAFE_INTEGER)
-                }}>フィルターをリセット</button>
-              </div>
-            )}
+              {!loading && !error && streamers.length === 0 && (
+                <div className="empty-state">
+                  <p>条件に合う配信者が見つかりませんでした</p>
+                  <button onClick={() => {
+                    setSelectedTags([])
+                    setTagOperator('OR')
+                    setSearchQuery('')
+                    setMinFollowers(0)
+                    setMaxFollowers(Number.MAX_SAFE_INTEGER)
+                  }}>フィルターをリセット</button>
+                </div>
+              )}
 
-            {!loading && !error && streamers.length > 0 && (
-              <div className="streamers-grid">
-                {streamers.map((streamer, index) => {
+              {!loading && !error && streamers.length > 0 && (
+                <div className="streamers-grid">
+                  {streamers.map((streamer, index) => {
                     const liveInfo = streamer.youtube_channel_id
                       ? liveStatus[streamer.youtube_channel_id]
                       : undefined
@@ -731,158 +738,170 @@ function App() {
                       />
                     )
                   })}
-              </div>
-            )}
-          </>
-        )}
-
-        {activeTab === 'preferences' && <PreferencesList />}
-      </main>
-
-      {selectedStreamer && (
-        <div className="modal-overlay" onClick={() => setSelectedStreamer(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setSelectedStreamer(null)}>
-              ×
-            </button>
-            <h2>{selectedStreamer.name}</h2>
-            <p>{selectedStreamer.description}</p>
-
-            {/* タグセクション */}
-            <div className="modal-tags-section">
-              <h3>タグ</h3>
-              <div className="tags">
-                {(selectedStreamer.tags || []).map((tag, index) => (
-                  <span key={index} className="tag modal-tag">
-                    #{tag}
-                    {currentUser && (
-                      <button
-                        className="tag-remove-btn"
-                        onClick={() => handleRemoveTag(tag)}
-                        title="タグを削除"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </span>
-                ))}
-              </div>
-
-              {currentUser && (
-                <div className="tag-add-form">
-                  <input
-                    type="text"
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    placeholder="新しいタグを追加..."
-                    maxLength={50}
-                    disabled={addingTag}
-                  />
-                  <button
-                    onClick={handleAddTag}
-                    disabled={!newTag.trim() || addingTag}
-                  >
-                    {addingTag ? '追加中...' : '追加'}
-                  </button>
                 </div>
               )}
-            </div>
+            </>
+          )}
 
-            {selectedStreamer.video_id && (
-              <div className="video-container">
-                <iframe
-                  width="100%"
-                  height="400"
-                  src={`https://www.youtube.com/embed/${selectedStreamer.video_id}`}
-                  title={selectedStreamer.name}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            )}
+          {activeTab === 'preferences' && <PreferencesList />}
 
-            {selectedStreamer.channel_url && (
-              <a
-                href={selectedStreamer.channel_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="channel-link"
-              >
-                チャンネルを見る →
-              </a>
-            )}
+          {activeTab === 'request' && (
+            <StreamerRequestForm
+              currentUser={currentUser}
+              onSuccess={() => {
+                // 登録成功後に探すタブに戻る
+                setActiveTab('discover')
+                // 配信者リストを再取得
+                fetchStreamers()
+              }}
+            />
+          )}
+        </main>
 
-            <div className="comments-section">
-              <h3>コメント</h3>
+        {selectedStreamer && (
+          <div className="modal-overlay" onClick={() => setSelectedStreamer(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <button className="modal-close" onClick={() => setSelectedStreamer(null)}>
+                ×
+              </button>
+              <h2>{selectedStreamer.name}</h2>
+              <p>{selectedStreamer.description}</p>
 
-              {currentUser ? (
-                <div className="comment-form">
-                  <textarea
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="コメントを入力..."
-                    maxLength={1000}
-                    disabled={submittingComment}
-                  />
-                  <button
-                    onClick={handleSubmitComment}
-                    disabled={!commentText.trim() || submittingComment}
-                  >
-                    {submittingComment ? '送信中...' : '投稿'}
-                  </button>
-                </div>
-              ) : (
-                <p className="login-prompt">コメントするにはログインが必要です</p>
-              )}
-
-              <div className="comments-list">
-                {comments.length === 0 ? (
-                  <p className="no-comments">まだコメントがありません</p>
-                ) : (
-                  comments.map((comment) => (
-                    <div key={comment.id} className="comment">
-                      <div className="comment-header">
-                        {comment.user?.avatar_url && (
-                          <img
-                            src={comment.user.avatar_url}
-                            alt={comment.user.name || 'User'}
-                            className="comment-avatar"
-                            loading="lazy"
-                          />
-                        )}
-                        <span className="comment-author">
-                          {comment.user?.name || comment.user?.email || 'Unknown'}
-                        </span>
-                        <span className="comment-date">
-                          {new Date(comment.created_at).toLocaleDateString('ja-JP')}
-                        </span>
-                      </div>
-                      <p className="comment-content">{comment.content}</p>
-
-                      {/* リアクションボタン */}
-                      <div className="comment-reactions">
+              {/* タグセクション */}
+              <div className="modal-tags-section">
+                <h3>タグ</h3>
+                <div className="tags">
+                  {(selectedStreamer.tags || []).map((tag, index) => (
+                    <span key={index} className="tag modal-tag">
+                      #{tag}
+                      {currentUser && (
                         <button
-                          className={`reaction-btn ${comment.user_reaction === 'like' ? 'active' : ''}`}
-                          onClick={() => handleReaction(comment.id, 'like')}
-                          disabled={!currentUser}
-                          aria-label={`いいね${comment.user_reaction === 'like' ? '済み' : ''}`}
-                          aria-pressed={comment.user_reaction === 'like'}
-                          title={!currentUser ? 'ログインしてリアクション' : 'いいね'}
+                          className="tag-remove-btn"
+                          onClick={() => handleRemoveTag(tag)}
+                          title="タグを削除"
                         >
-                          👍 {comment.reaction_count > 0 && (
-                            <span className="reaction-count">{comment.reaction_count}</span>
-                          )}
+                          ×
                         </button>
-                      </div>
-                    </div>
-                  ))
+                      )}
+                    </span>
+                  ))}
+                </div>
+
+                {currentUser && (
+                  <div className="tag-add-form">
+                    <input
+                      type="text"
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      placeholder="新しいタグを追加..."
+                      maxLength={50}
+                      disabled={addingTag}
+                    />
+                    <button
+                      onClick={handleAddTag}
+                      disabled={!newTag.trim() || addingTag}
+                    >
+                      {addingTag ? '追加中...' : '追加'}
+                    </button>
+                  </div>
                 )}
+              </div>
+
+              {selectedStreamer.video_id && (
+                <div className="video-container">
+                  <iframe
+                    width="100%"
+                    height="400"
+                    src={`https://www.youtube.com/embed/${selectedStreamer.video_id}`}
+                    title={selectedStreamer.name}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              )}
+
+              {selectedStreamer.channel_url && (
+                <a
+                  href={selectedStreamer.channel_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="channel-link"
+                >
+                  チャンネルを見る →
+                </a>
+              )}
+
+              <div className="comments-section">
+                <h3>コメント</h3>
+
+                {currentUser ? (
+                  <div className="comment-form">
+                    <textarea
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="コメントを入力..."
+                      maxLength={1000}
+                      disabled={submittingComment}
+                    />
+                    <button
+                      onClick={handleSubmitComment}
+                      disabled={!commentText.trim() || submittingComment}
+                    >
+                      {submittingComment ? '送信中...' : '投稿'}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="login-prompt">コメントするにはログインが必要です</p>
+                )}
+
+                <div className="comments-list">
+                  {comments.length === 0 ? (
+                    <p className="no-comments">まだコメントがありません</p>
+                  ) : (
+                    comments.map((comment) => (
+                      <div key={comment.id} className="comment">
+                        <div className="comment-header">
+                          {comment.user?.avatar_url && (
+                            <img
+                              src={comment.user.avatar_url}
+                              alt={comment.user.name || 'User'}
+                              className="comment-avatar"
+                              loading="lazy"
+                            />
+                          )}
+                          <span className="comment-author">
+                            {comment.user?.name || comment.user?.email || 'Unknown'}
+                          </span>
+                          <span className="comment-date">
+                            {new Date(comment.created_at).toLocaleDateString('ja-JP')}
+                          </span>
+                        </div>
+                        <p className="comment-content">{comment.content}</p>
+
+                        {/* リアクションボタン */}
+                        <div className="comment-reactions">
+                          <button
+                            className={`reaction-btn ${comment.user_reaction === 'like' ? 'active' : ''}`}
+                            onClick={() => handleReaction(comment.id, 'like')}
+                            disabled={!currentUser}
+                            aria-label={`いいね${comment.user_reaction === 'like' ? '済み' : ''}`}
+                            aria-pressed={comment.user_reaction === 'like'}
+                            title={!currentUser ? 'ログインしてリアクション' : 'いいね'}
+                          >
+                            👍 {comment.reaction_count > 0 && (
+                              <span className="reaction-count">{comment.reaction_count}</span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
         {/* オンボーディングウィザード */}
         {showOnboarding && (
@@ -904,7 +923,7 @@ function App() {
 
         <footer className="footer">
           <div className="footer-content">
-            <p className="footer-copyright">&copy; 2025 OshiStream. All rights reserved.</p>
+            <p className="footer-copyright">&copy; 2025 ゆとりぃま～ず. All rights reserved.</p>
             <div className="footer-links">
               <a href="/terms" className="footer-link">
                 利用規約

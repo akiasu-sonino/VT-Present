@@ -14,7 +14,7 @@ function LoginPromptModal({ isOpen, onLogin, onContinueAnonymous }: LoginPromptM
       <div className="onboarding-modal login-prompt-modal" onClick={(e) => e.stopPropagation()}>
         <div className="login-prompt-content">
           <div className="login-prompt-icon">👋</div>
-          <h2 className="login-prompt-title">OshiStream へようこそ！</h2>
+          <h2 className="login-prompt-title">ゆとりぃま～ず へようこそ！</h2>
           <p className="login-prompt-description">
             Googleログインすると以下の機能が使えます。是非ログインして使ってください。
           </p>
