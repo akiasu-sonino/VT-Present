@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, saveQuizResultsForUser, saveTagSelectionForUser, completeOnboardingForUser, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId, upsertLiveStreams, getLiveStreams, getLiveChannelIds, updateLiveStreamsIfNeeded, createComment, createContactMessage, getRecentLikeCounts, type LiveStream } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, saveQuizResultsForUser, saveTagSelectionForUser, completeOnboardingForUser, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId, upsertLiveStreams, getLiveStreams, getLiveChannelIds, updateLiveStreamsIfNeeded, createComment, createContactMessage, getRecentLikeCounts, triggerStreamerStatsUpdateIfNeeded, type LiveStream } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessionCookie, getSessionUserId, clearSession, isDevelopment, createMockUser } from './lib/oauth.js'
 import { getLiveStreamStatus, type LiveStreamInfo } from './lib/youtube.js'
@@ -476,6 +476,10 @@ app.get('/streams/random', async (c) => {
 // 協調フィルタリングにも対応（algorithm=collaborative）
 app.get('/streams/random-multiple', async (c) => {
   try {
+    // 配信者統計の自動更新をトリガー（24時間以上経過していれば）
+    // バックグラウンドで実行されるため、レスポンスには影響しない
+    triggerStreamerStatsUpdateIfNeeded()
+
     // 匿名ユーザーを取得
     const { user } = await getOrCreateCurrentUser(c)
 

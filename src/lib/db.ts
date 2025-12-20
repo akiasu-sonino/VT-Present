@@ -1408,3 +1408,91 @@ export async function getRecentLikeCounts(): Promise<Map<number, number>> {
     return new Map()
   }
 }
+
+// ========================================
+// 配信者統計自動更新
+// ========================================
+
+/**
+ * 配信者統計の最終更新日時を取得
+ */
+export async function getStreamerStatsLastUpdate(): Promise<Date | null> {
+  try {
+    const result = await sql<{ value: string | null }>`
+      SELECT value FROM system_settings
+      WHERE key = 'streamer_stats_last_update'
+    `
+
+    if (result.rows.length === 0 || !result.rows[0].value) {
+      return null
+    }
+
+    return new Date(result.rows[0].value)
+  } catch (error) {
+    // system_settingsテーブルがない場合はnullを返す
+    console.log('[DB] system_settings table may not exist yet')
+    return null
+  }
+}
+
+/**
+ * 配信者統計の更新が必要かチェック（24時間以上経過しているか）
+ */
+export async function shouldUpdateStreamerStats(): Promise<boolean> {
+  try {
+    const lastUpdate = await getStreamerStatsLastUpdate()
+
+    if (!lastUpdate) {
+      console.log('[DB] Streamer stats: First update needed')
+      return true
+    }
+
+    const now = Date.now()
+    const oneDayAgo = now - 24 * 60 * 60 * 1000
+
+    if (lastUpdate.getTime() < oneDayAgo) {
+      console.log(`[DB] Streamer stats: Last update ${lastUpdate.toISOString()} - needs update`)
+      return true
+    }
+
+    console.log(`[DB] Streamer stats: Last update ${lastUpdate.toISOString()} - still fresh`)
+    return false
+  } catch (error) {
+    console.error('[DB] Error checking streamer stats update:', error)
+    return false
+  }
+}
+
+/**
+ * 配信者統計の更新をトリガー（必要な場合のみ）
+ * バックグラウンドで非同期実行される
+ */
+export async function triggerStreamerStatsUpdateIfNeeded(): Promise<void> {
+  try {
+    const needsUpdate = await shouldUpdateStreamerStats()
+
+    if (!needsUpdate) {
+      return
+    }
+
+    console.log('[DB] Triggering streamer stats update in background...')
+
+    // 動的インポートで更新スクリプトを呼び出し
+    // バックグラウンドで実行（awaitしない）
+    import('../../tools/update-streamer-stats.js')
+      .then(({ updateAllStreamerStats }) => {
+        updateAllStreamerStats()
+          .then(result => {
+            console.log(`[DB] Streamer stats update completed: ${JSON.stringify(result)}`)
+          })
+          .catch(error => {
+            console.error('[DB] Streamer stats update error:', error)
+          })
+      })
+      .catch(error => {
+        console.error('[DB] Failed to import update script:', error)
+      })
+  } catch (error) {
+    console.error('[DB] Error triggering streamer stats update:', error)
+  }
+}
