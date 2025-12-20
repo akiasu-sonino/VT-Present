@@ -30,7 +30,8 @@ CREATE TABLE streamers (
   twitch_user_id VARCHAR(15) UNIQUE,
   video_id TEXT,
   created_at TIMESTAMP DEFAULT NOW(),
-  channel_created_at TIMESTAMP  -- YouTubeチャンネル開設日（新人判定用）
+  channel_created_at TIMESTAMP,  -- YouTubeチャンネル開設日（新人判定用）
+  latest_video_published_at TIMESTAMP WITH TIME ZONE  -- 最新動画の公開日（隠れた逸材判定用）
 );
 
 -- 認証済みユーザーテーブル（Google OAuth）

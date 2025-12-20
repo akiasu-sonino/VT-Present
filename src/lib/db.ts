@@ -20,6 +20,8 @@ export interface Streamer {
   twitch_user_id?: string
   video_id?: string
   created_at: Date
+  latest_video_published_at?: Date
+  recent_like_count?: number
 }
 
 export interface AnonymousUser {
@@ -1372,5 +1374,37 @@ export async function createContactMessage(
   } catch (error) {
     console.error('Error creating contact message:', error)
     throw error
+  }
+}
+
+// ========================================
+// Hotバッジ用: 直近一週間のLike数集計
+// ========================================
+
+/**
+ * 全配信者の直近一週間のLike数を取得
+ * @returns streamer_id -> like_count のMap
+ */
+export async function getRecentLikeCounts(): Promise<Map<number, number>> {
+  try {
+    console.log('[DB] Fetching recent like counts (last 7 days)')
+    const result = await sql<{ streamer_id: number; like_count: string }>`
+      SELECT streamer_id, COUNT(*) as like_count
+      FROM preferences
+      WHERE action = 'LIKE'
+        AND created_at > NOW() - INTERVAL '7 days'
+      GROUP BY streamer_id
+    `
+
+    const likeCounts = new Map<number, number>()
+    result.rows.forEach(row => {
+      likeCounts.set(row.streamer_id, parseInt(row.like_count, 10))
+    })
+
+    console.log(`[DB] Found ${likeCounts.size} streamers with recent likes`)
+    return likeCounts
+  } catch (error) {
+    console.error('Error fetching recent like counts:', error)
+    return new Map()
   }
 }

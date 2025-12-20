@@ -16,6 +16,8 @@ interface Streamer {
   created_at?: string
   channel_created_at?: string
   recommendation_score?: number
+  latest_video_published_at?: string
+  recent_like_count?: number
 }
 
 interface LiveInfo {
@@ -67,9 +69,22 @@ function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, showRem
       }
     }
 
-    // 隠れた逸材バッジ（フォロワー数1000未満）
-    if (streamer.follower_count < 1000 && streamer.recommendation_score && streamer.recommendation_score > 0.7) {
-      badges.push({ type: 'hidden-gem', label: '隠れた逸材', icon: '💎' })
+    // 隠れた逸材バッジ（フォロワー数1000人以下 + 一週間以内に最新動画がある）
+    if (streamer.follower_count <= 1000 && streamer.latest_video_published_at) {
+      const latestVideoDate = new Date(streamer.latest_video_published_at)
+      const oneWeekAgo = new Date()
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+
+      if (latestVideoDate > oneWeekAgo) {
+        badges.push({ type: 'hidden-gem', label: '隠れた逸材', icon: '💎' })
+      }
+    }
+
+    // Hotバッジ（直近一週間に ceil(フォロワー数/10000) 件以上のLike）
+    const recentLikeCount = streamer.recent_like_count || 0
+    const requiredLikes = Math.ceil(streamer.follower_count / 10000)
+    if (recentLikeCount >= requiredLikes && requiredLikes > 0) {
+      badges.push({ type: 'hot', label: 'Hot', icon: '🔥' })
     }
 
     // Matchバッジ（推薦スコア0.8以上）

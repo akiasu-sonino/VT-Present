@@ -123,15 +123,17 @@ async function getLatestVideo(channelId: string) {
   const videoData = await fetchJson(videoUrl)
 
   if (!videoData.items || videoData.items.length === 0) {
-    return { videoId, title: '', description: '', tags: [] }
+    return { videoId, title: '', description: '', tags: [], publishedAt: null }
   }
 
   const video = videoData.items[0].snippet
+  log(`  - 最新動画公開日: ${video.publishedAt}`)
   return {
     videoId,
     title: video.title || '',
     description: video.description || '',
-    tags: video.tags || []
+    tags: video.tags || [],
+    publishedAt: video.publishedAt || null
   }
 }
 
@@ -250,6 +252,7 @@ async function insertStreamer(data: {
   youtubeChannelId: string
   videoId: string | null
   channelCreatedAt: string | null
+  latestVideoPublishedAt: string | null
 }) {
   log('▶️ DBへ挿入中...')
 
@@ -258,7 +261,7 @@ async function insertStreamer(data: {
       INSERT INTO streamers (
         name, platform, avatar_url, description, tags,
         follower_count, channel_url, youtube_channel_id,
-        twitch_user_id, video_id, channel_created_at
+        twitch_user_id, video_id, channel_created_at, latest_video_published_at
       ) VALUES (
         ${data.name},
         ${data.platform},
@@ -270,7 +273,8 @@ async function insertStreamer(data: {
         ${data.youtubeChannelId},
         NULL,
         ${data.videoId},
-        ${data.channelCreatedAt}
+        ${data.channelCreatedAt},
+        ${data.latestVideoPublishedAt}
       )
       ON CONFLICT (youtube_channel_id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -280,7 +284,8 @@ async function insertStreamer(data: {
         video_id = EXCLUDED.video_id,
         description = EXCLUDED.description,
         tags = EXCLUDED.tags,
-        channel_created_at = EXCLUDED.channel_created_at
+        channel_created_at = EXCLUDED.channel_created_at,
+        latest_video_published_at = EXCLUDED.latest_video_published_at
     `
 
     logSuccess('DBに挿入/更新完了！')
@@ -336,7 +341,8 @@ export async function insertYoutubeStreamer(handle: string): Promise<void> {
     channelUrl: `https://www.youtube.com/@${cleanHandle}`,
     youtubeChannelId: channelId,
     videoId: latestVideo?.videoId || null,
-    channelCreatedAt: channelInfo.channelCreatedAt || null
+    channelCreatedAt: channelInfo.channelCreatedAt || null,
+    latestVideoPublishedAt: latestVideo?.publishedAt || null
   })
 
   logSuccess(`処理完了: @${cleanHandle}`)

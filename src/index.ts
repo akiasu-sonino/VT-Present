@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, saveQuizResultsForUser, saveTagSelectionForUser, completeOnboardingForUser, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId, upsertLiveStreams, getLiveStreams, getLiveChannelIds, updateLiveStreamsIfNeeded, createComment, createContactMessage, type LiveStream } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, saveQuizResultsForUser, saveTagSelectionForUser, completeOnboardingForUser, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId, upsertLiveStreams, getLiveStreams, getLiveChannelIds, updateLiveStreamsIfNeeded, createComment, createContactMessage, getRecentLikeCounts, type LiveStream } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessionCookie, getSessionUserId, clearSession, isDevelopment, createMockUser } from './lib/oauth.js'
 import { getLiveStreamStatus, type LiveStreamInfo } from './lib/youtube.js'
@@ -544,6 +544,17 @@ app.get('/streams/random-multiple', async (c) => {
       console.log(`[LiveFilter] Found ${liveChannelIds.length} live channels from DB`)
     }
 
+    // Hotバッジ用: 直近一週間のLike数を取得
+    const recentLikeCounts = await getRecentLikeCounts()
+
+    // 配信者にrecent_like_countを付与するヘルパー関数
+    const attachRecentLikeCounts = <T extends { id: number }>(streamers: T[]): (T & { recent_like_count: number })[] => {
+      return streamers.map(s => ({
+        ...s,
+        recent_like_count: recentLikeCounts.get(s.id) || 0
+      }))
+    }
+
     if (algorithm === 'collaborative') {
       // 協調フィルタリング
       if (debug) {
@@ -564,6 +575,7 @@ app.get('/streams/random-multiple', async (c) => {
         c.header('Cache-Control', 'private, max-age=300')
         return c.json({
           ...result,
+          streamers: attachRecentLikeCounts(result.streamers),
           count: result.streamers.length,
           filters: { tags, query, tagOperator, minFollowers, maxFollowers, liveOnly },
           algorithm: 'collaborative',
@@ -586,7 +598,7 @@ app.get('/streams/random-multiple', async (c) => {
         // レコメンデーションはユーザー固有なのでプライベートキャッシュ（5分）
         c.header('Cache-Control', 'private, max-age=300')
         return c.json({
-          streamers,
+          streamers: attachRecentLikeCounts(streamers),
           count: streamers.length,
           filters: { tags, query, tagOperator, minFollowers, maxFollowers, liveOnly },
           algorithm: 'collaborative',
@@ -599,7 +611,7 @@ app.get('/streams/random-multiple', async (c) => {
       // ストリーマーデータはユーザー固有なのでプライベートキャッシュ（5分）
       c.header('Cache-Control', 'private, max-age=300')
       return c.json({
-        streamers,
+        streamers: attachRecentLikeCounts(streamers),
         count: streamers.length,
         filters: { tags, query, tagOperator, minFollowers, maxFollowers, liveOnly },
         algorithm: 'random',

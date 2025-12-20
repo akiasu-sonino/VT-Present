@@ -244,6 +244,22 @@
   }
 }
 
+/* Hotバッジ */
+.badge-hot {
+  background: linear-gradient(135deg, #ff4d4d 0%, #ff8c00 100%);
+  color: #fff;
+  animation: hotFlame 1.5s ease-in-out infinite;
+}
+
+@keyframes hotFlame {
+  0%, 100% {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 12px rgba(255, 77, 77, 0.4);
+  }
+  50% {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 20px rgba(255, 140, 0, 0.6);
+  }
+}
+
 /* アニメーション軽減モード対応 */
 @media (prefers-reduced-motion: reduce) {
   .badge-hidden-gem {
@@ -251,6 +267,10 @@
   }
 
   .badge-match {
+    animation: none;
+  }
+
+  .badge-hot {
     animation: none;
   }
 
