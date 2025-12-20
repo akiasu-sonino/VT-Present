@@ -29,7 +29,8 @@ CREATE TABLE streamers (
   youtube_channel_id VARCHAR(24) UNIQUE,
   twitch_user_id VARCHAR(15) UNIQUE,
   video_id TEXT,
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP DEFAULT NOW(),
+  channel_created_at TIMESTAMP  -- YouTubeチャンネル開設日（新人判定用）
 );
 
 -- 認証済みユーザーテーブル（Google OAuth）

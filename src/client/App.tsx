@@ -26,6 +26,9 @@ interface Streamer {
   youtube_channel_id?: string
   twitch_user_id?: string
   video_id?: string
+  created_at?: string
+  channel_created_at?: string
+  recommendation_score?: number
 }
 
 interface User {

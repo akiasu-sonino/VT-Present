@@ -5,11 +5,74 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   cursor: pointer;
+  position: relative;
 }
 
 .streamer-card:hover {
   transform: translateY(-8px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* ライブ配信中のカード特別エフェクト */
+.streamer-card.is-live {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 0 20px rgba(220, 38, 38, 0.3);
+  animation: liveCardPulse 3s ease-in-out infinite;
+}
+
+.streamer-card.is-live::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg,
+    #ff0000, #ff7300, #fffb00, #48ff00,
+    #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000
+  );
+  background-size: 400% 400%;
+  border-radius: 18px;
+  z-index: -1;
+  animation: gradientBorder 8s ease infinite;
+  opacity: 0.6;
+}
+
+.streamer-card.is-live::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  border-radius: 16px;
+  z-index: -1;
+}
+
+.streamer-card.is-live:hover {
+  transform: translateY(-10px) scale(1.02);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.2), 0 0 30px rgba(220, 38, 38, 0.5);
+}
+
+@keyframes liveCardPulse {
+  0%, 100% {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 0 20px rgba(220, 38, 38, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 0 30px rgba(220, 38, 38, 0.5);
+  }
+}
+
+@keyframes gradientBorder {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .card-image {
@@ -99,13 +162,101 @@
 .streamer-description {
   font-size: 0.9rem;
   color: #718096;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: 2.7em;
+}
+
+/* バッジコンテナ */
+.badges-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+/* バッジ共通スタイル */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.badge-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.badge-label {
+  line-height: 1;
+}
+
+/* 新人配信者バッジ */
+.badge-newcomer {
+  background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+  color: #1a365d;
+}
+
+/* 隠れた逸材バッジ */
+.badge-hidden-gem {
+  background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+  color: #6c5ce7;
+  animation: gemShine 3s ease-in-out infinite;
+}
+
+@keyframes gemShine {
+  0%, 100% {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 10px rgba(253, 203, 110, 0.3);
+  }
+  50% {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 20px rgba(253, 203, 110, 0.6);
+  }
+}
+
+/* Matchバッジ */
+.badge-match {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  color: #742a2a;
+  animation: matchPulse 2s ease-in-out infinite;
+}
+
+@keyframes matchPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* アニメーション軽減モード対応 */
+@media (prefers-reduced-motion: reduce) {
+  .badge-hidden-gem {
+    animation: none;
+  }
+
+  .badge-match {
+    animation: none;
+  }
+
+  .badge:hover {
+    transform: none;
+  }
 }
 
 .tags {
@@ -189,6 +340,24 @@
 .action-remove:hover {
   background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
   box-shadow: 0 6px 12px rgba(220, 38, 38, 0.3);
+}
+
+/* アニメーション軽減モード対応 */
+@media (prefers-reduced-motion: reduce) {
+  .streamer-card.is-live {
+    animation: none;
+  }
+
+  .streamer-card.is-live::before {
+    animation: none;
+    background: linear-gradient(45deg, #dc2626, #ef4444);
+  }
+
+  .streamer-card,
+  .streamer-card:hover,
+  .action-btn {
+    transition: none;
+  }
 }
 
 @media (max-width: 768px) {

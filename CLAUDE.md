@@ -5,7 +5,8 @@
 - **Build**: `npm run build` (Runs `vite build` for Vercel)
 - **Deploy**: `vercel` or `vercel --prod`
 - **Lint**: `npm run lint`
-
+  - Since builds and lint checks are performed by humans, there is no need to suggest them.
+  
 ## Tech Stack
 - **Framework**: Hono (v4+)
 - **Build Tool**: Vite

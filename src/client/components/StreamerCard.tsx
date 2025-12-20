@@ -13,6 +13,9 @@ interface Streamer {
   youtube_channel_id?: string
   twitch_user_id?: string
   video_id?: string
+  created_at?: string
+  channel_created_at?: string
+  recommendation_score?: number
 }
 
 interface LiveInfo {
@@ -49,8 +52,38 @@ function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, showRem
     return count.toString()
   }
 
+  // バッジ判定ロジック
+  const getBadges = () => {
+    const badges: Array<{ type: string; label: string; icon: string }> = []
+
+    // 新人配信者バッジ（チャンネル開設から1年以内）
+    if (streamer.channel_created_at) {
+      const channelCreatedDate = new Date(streamer.channel_created_at)
+      const oneYearAgo = new Date()
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+
+      if (channelCreatedDate > oneYearAgo) {
+        badges.push({ type: 'newcomer', label: '新人', icon: '🌱' })
+      }
+    }
+
+    // 隠れた逸材バッジ（フォロワー数1000未満）
+    if (streamer.follower_count < 1000 && streamer.recommendation_score && streamer.recommendation_score > 0.7) {
+      badges.push({ type: 'hidden-gem', label: '隠れた逸材', icon: '💎' })
+    }
+
+    // Matchバッジ（推薦スコア0.8以上）
+    if (streamer.recommendation_score && streamer.recommendation_score >= 0.8) {
+      badges.push({ type: 'match', label: 'Match', icon: '⭐' })
+    }
+
+    return badges
+  }
+
+  const badges = getBadges()
+
   return (
-    <div className="streamer-card">
+    <div className={`streamer-card ${liveInfo?.isLive ? 'is-live' : ''}`}>
       <div className="card-image" onClick={onClick}>
         <img src={streamer.avatar_url} alt={streamer.name} loading="lazy" />
         <span className="platform-badge">{streamer.platform}</span>
@@ -68,6 +101,18 @@ function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, showRem
       <div className="card-content" onClick={onClick}>
         <h3 className="streamer-name">{streamer.name}</h3>
         <p className="streamer-description">{streamer.description}</p>
+
+        {/* バッジ表示 */}
+        {badges.length > 0 && (
+          <div className="badges-container">
+            {badges.map((badge, index) => (
+              <span key={index} className={`badge badge-${badge.type}`} title={badge.label}>
+                <span className="badge-icon">{badge.icon}</span>
+                <span className="badge-label">{badge.label}</span>
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="tags">
           {(streamer.tags || []).map((tag, index) => (

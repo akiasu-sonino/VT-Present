@@ -91,11 +91,16 @@ async function getChannelInfo(channelId: string) {
   }
 
   const item = data.items[0]
+  const channelCreatedAt = item.snippet.publishedAt // チャンネル開設日
+
+  log(`  - チャンネル開設日: ${channelCreatedAt}`)
+
   return {
     name: item.snippet.title,
     avatarUrl: item.snippet.thumbnails.medium.url,
     description: item.snippet.description || '',
-    followerCount: parseInt(item.statistics.subscriberCount || '0', 10)
+    followerCount: parseInt(item.statistics.subscriberCount || '0', 10),
+    channelCreatedAt: channelCreatedAt
   }
 }
 
@@ -244,6 +249,7 @@ async function insertStreamer(data: {
   channelUrl: string
   youtubeChannelId: string
   videoId: string | null
+  channelCreatedAt: string | null
 }) {
   log('▶️ DBへ挿入中...')
 
@@ -252,7 +258,7 @@ async function insertStreamer(data: {
       INSERT INTO streamers (
         name, platform, avatar_url, description, tags,
         follower_count, channel_url, youtube_channel_id,
-        twitch_user_id, video_id
+        twitch_user_id, video_id, channel_created_at
       ) VALUES (
         ${data.name},
         ${data.platform},
@@ -263,7 +269,8 @@ async function insertStreamer(data: {
         ${data.channelUrl},
         ${data.youtubeChannelId},
         NULL,
-        ${data.videoId}
+        ${data.videoId},
+        ${data.channelCreatedAt}
       )
       ON CONFLICT (youtube_channel_id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -272,7 +279,8 @@ async function insertStreamer(data: {
         channel_url = EXCLUDED.channel_url,
         video_id = EXCLUDED.video_id,
         description = EXCLUDED.description,
-        tags = EXCLUDED.tags
+        tags = EXCLUDED.tags,
+        channel_created_at = EXCLUDED.channel_created_at
     `
 
     logSuccess('DBに挿入/更新完了！')
@@ -327,7 +335,8 @@ export async function insertYoutubeStreamer(handle: string): Promise<void> {
     followerCount: channelInfo.followerCount,
     channelUrl: `https://www.youtube.com/@${cleanHandle}`,
     youtubeChannelId: channelId,
-    videoId: latestVideo?.videoId || null
+    videoId: latestVideo?.videoId || null,
+    channelCreatedAt: channelInfo.channelCreatedAt || null
   })
 
   logSuccess(`処理完了: @${cleanHandle}`)
