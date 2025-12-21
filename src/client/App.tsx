@@ -80,6 +80,7 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [totalStreamerCount, setTotalStreamerCount] = useState<number | null>(null)
 
   const fetchStreamers = useCallback(async () => {
     try {
@@ -135,7 +136,20 @@ function App() {
     fetchCurrentUser()
     checkOnboarding()
     checkAnonymousModal()
+    fetchStreamerCount()
   }, [])
+
+  const fetchStreamerCount = async () => {
+    try {
+      const response = await fetch('/api/streamers/count')
+      const data = await response.json()
+      if (response.ok && typeof data.count === 'number') {
+        setTotalStreamerCount(data.count)
+      }
+    } catch (err) {
+      console.error('Error fetching streamer count:', err)
+    }
+  }
 
   // デバイス判定（スマホ・タブレット判定）
   useEffect(() => {
@@ -653,6 +667,11 @@ function App() {
         <main className="main">
           {activeTab === 'discover' && (
             <>
+              {totalStreamerCount !== null && (
+                <p className="streamer-count-info">
+                  全{totalStreamerCount.toLocaleString()}人が登録されています。
+                </p>
+              )}
               <div className="filters-container">
                 <div className="filters-row">
                   <FilterPresets

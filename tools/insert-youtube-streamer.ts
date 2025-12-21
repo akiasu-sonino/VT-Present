@@ -149,17 +149,30 @@ async function generateDescriptionAndTags(payload: {
 }): Promise<{ description: string; tags: string[] }> {
   log('▶️ AI生成: 説明文とタグを生成中...')
 
-  const prompt = `あなたはVTuber/配信者の紹介文を作る編集者です。
-仕様:
-- 出力はJSONオブジェクト
-- description: 日本語で丁寧語、120字以内
-- tags: 配信ジャンル/特徴タグ 最大8件、ひらがな/カタカナ/漢字の単語にする（カンマ不要）
-- 個人情報・憶測は書かない。
-- 配信者 [配信者名]で検索を行い、その配信者の特徴を表すdescriptionとtagsを生成する。
+  const prompt = `あなたはVTuber/配信者の「第三者紹介文」を作る編集者です。
+
+制約:
+- 本人視点の表現は禁止（「はじめまして」「私は」等NG）
+- 出力は **JSONのみ**
+- description:
+  - 書き出しは必ず「この方は〇〇さんです。」
+  - 日本語・丁寧語
+  - 120字以内
+- tags:
+  - 最大8件
+  - 単語のみ（ひらがな/カタカナ/漢字）
+  - 必ず「VTuber」または「配信者」を含める
+- 個人情報・憶測は書かない
 
 入力:
 配信者名: ${payload.name}
-公式説明: ${payload.channelDesc}`.trim()
+公式説明: ${payload.channelDesc}
+
+出力フォーマット:
+{
+  "description": string,
+  "tags": string[]
+}`.trim()
 
   try {
     await new Promise(resolve => setTimeout(resolve, 2000)) // API制限対策

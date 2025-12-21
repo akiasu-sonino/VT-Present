@@ -1,28 +1,32 @@
 #!/usr/bin/env tsx
 /**
  * VTuber/配信者の説明文とタグをAI生成するスクリプト
- * 標準入力からJSONペイロードを受け取り、標準出力にJSON結果を出力
+ * 標準入力(JSON) → 標準出力(JSON)
  */
 
 import { OpenAI } from 'openai'
 
+/* =====================
+ * 設定
+ * ===================== */
 const DEBUG = process.env.DEBUG_GEMINI_GEN === '1'
+const MODEL = 'gpt-5-mini'
 
-// ログ出力（常に標準エラーに出力）
-function logError(msg: string): void {
-  console.error(`[ERROR] ${msg}`)
+// 外部レート制御が無い環境向けの安全弁
+const RATE_LIMIT_WAIT_MS = Number(process.env.RATE_LIMIT_WAIT_MS ?? 2000)
+
+/* =====================
+ * Logger
+ * ===================== */
+const log = {
+  info: (msg: string) => console.error(`[INFO] ${msg}`),
+  error: (msg: string) => console.error(`[ERROR] ${msg}`),
+  debug: (msg: string) => DEBUG && console.error(`[DEBUG] ${msg}`)
 }
 
-function logInfo(msg: string): void {
-  console.error(`[INFO] ${msg}`)
-}
-
-function logDebug(msg: string): void {
-  if (DEBUG) {
-    console.error(`[DEBUG] ${msg}`)
-  }
-}
-
+/* =====================
+ * 型定義
+ * ===================== */
 interface Payload {
   name: string
   channel_desc: string
@@ -36,116 +40,122 @@ interface Result {
   tags: string[]
 }
 
-// OpenAIクライアント
-let client: OpenAI
-try {
-  logInfo('OpenAIクライアントを初期化中...')
-  const apiKey = process.env.OPENAI_API_KEY
-  client = new OpenAI({ apiKey })
-  logInfo('OpenAIクライアント初期化完了')
-} catch (e) {
-  logError(`OpenAIクライアント初期化エラー: ${e}`)
-  process.exit(1)
-}
+/* =====================
+ * OpenAI Client
+ * ===================== */
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+})
 
+/* =====================
+ * Prompt
+ * ===================== */
 function buildPrompt(payload: Payload): string {
-  return `あなたはVTuber/配信者の紹介文を作る編集者です。
-仕様:
-- 出力はJSONオブジェクト
-- description: 日本語で丁寧語、120字以内
-- tags: 配信ジャンル/特徴タグ 最大8件、ひらがな/カタカナ/漢字の単語にする（カンマ不要）
-- 個人情報・憶測は書かない。
-- 配信者 [配信者名]で検索を行い、その配信者の特徴を表すdescriptionとtagsを生成する。
+  return `
+あなたはVTuber/配信者の「第三者紹介文」を作る編集者です。
+
+制約:
+- 本人視点の表現は禁止（「はじめまして」「私は」等NG）
+- 出力は **JSONのみ**
+- description:
+  - 書き出しは必ず「この方は〇〇さんです。」
+  - 日本語・丁寧語
+  - 120字以内
+- tags:
+  - 最大8件
+  - 単語のみ（ひらがな/カタカナ/漢字）
+  - 必ず「VTuber」または「配信者」を含める
+- 個人情報・憶測は書かない
 
 入力:
 配信者名: ${payload.name}
-公式説明: ${payload.channel_desc}`.trim()
+公式説明: ${payload.channel_desc}
+
+出力フォーマット:
+{
+  "description": string,
+  "tags": string[]
+}
+`.trim()
 }
 
-async function generate(payload: Payload): Promise<Result> {
-  logInfo('プロンプト生成中...')
-  const prompt = buildPrompt(payload)
-  logDebug(`prompt:\n${prompt}`)
+/* =====================
+ * JSON Parse Helper
+ * ===================== */
+function safeParseJSON(text: string): Result {
+  let jsonText = text.trim()
 
-  // OpenAI API呼び出し
-  logInfo('OpenAI APIを呼び出し中...')
+  // ```json``` フェンス除去（保険）
+  if (jsonText.startsWith('```')) {
+    const match = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (match) jsonText = match[1].trim()
+  }
+
   try {
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
+    const data = JSON.parse(jsonText)
+    return {
+      description: String(data.description || '').replace(/\n/g, ' ').trim(),
+      tags: Array.isArray(data.tags)
+        ? data.tags.map((t: string) => t.trim()).filter(Boolean)
+        : []
+    }
+  } catch (e) {
+    log.error(`JSON parse failed`)
+    log.debug(jsonText)
+    return { description: '', tags: [] }
+  }
+}
+
+/* =====================
+ * Generate
+ * ===================== */
+async function generate(payload: Payload): Promise<Result> {
+  const prompt = buildPrompt(payload)
+  log.debug(`Prompt:\n${prompt}`)
+
+  try {
+    const res = await client.responses.create({
+      model: MODEL,
+      input: [
         { role: 'system', content: 'You are a helpful assistant.' },
         { role: 'user', content: prompt }
       ]
     })
 
-    const rawText = response.choices[0]?.message?.content?.trim() || ''
-    logInfo(`OpenAI APIレスポンス受信完了（${rawText.length} bytes）`)
-    logDebug(`raw response:\n${rawText}`)
+    const output = res.output_text?.trim() ?? ''
+    log.info(`AI response received (${output.length} chars)`)
 
-    let text = rawText
-
-    // ```json ... ``` の囲いを除去
-    if (text.startsWith('```')) {
-      logInfo('コードブロック囲いを除去中...')
-      const match = text.match(/```(?:json)?\s*(.*?)```/s)
-      if (match) {
-        text = match[1].trim()
-        logDebug(`unfenced json:\n${text}`)
-      }
-    }
-
-    logDebug(`抜き出し後のJSON:\n${text}`)
-
-    // JSONをパース
-    logInfo('JSONをパース中...')
-    try {
-      const data = JSON.parse(text)
-      const desc = String(data.description || '').trim().replace(/\n/g, ' ')
-      const tags = (data.tags || []).map((t: string) => t.trim()).filter(Boolean)
-      logInfo(`JSONパース成功: description=${desc.length}文字, tags=${tags.length}個`)
-      return { description: desc, tags }
-    } catch (e) {
-      logError(`JSONパースエラー: ${e}`)
-      logError(`パース対象テキスト: ${text.slice(0, 200)}...`)
-      return { description: '', tags: [] }
-    }
+    return safeParseJSON(output)
   } catch (e) {
-    logError(`OpenAI API呼び出しエラー: ${e}`)
+    log.error(`OpenAI API error: ${e}`)
     return { description: '', tags: [] }
   }
 }
 
+/* =====================
+ * Main
+ * ===================== */
 async function main() {
   try {
-    // 標準入力からペイロードを読み込む
-    logInfo('標準入力からペイロードを読み込み中...')
-
-    let inputData = ''
+    log.info('Reading stdin...')
+    let input = ''
     process.stdin.setEncoding('utf8')
+    for await (const chunk of process.stdin) input += chunk
 
-    for await (const chunk of process.stdin) {
-      inputData += chunk
-    }
+    const payload: Payload = JSON.parse(input)
+    log.info(`Payload loaded: ${payload.name}`)
 
-    const payload: Payload = JSON.parse(inputData)
-    logInfo(`ペイロード読み込み完了: name=${payload.name || 'N/A'}`)
+    // レート制御（外部で制御できない環境向けの安全弁）
+    log.info(`Waiting ${RATE_LIMIT_WAIT_MS}ms for rate limit control...`)
+    await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_WAIT_MS))
 
-    logInfo('2秒待機中...')
-    await new Promise(resolve => setTimeout(resolve, 2000))
-
-    logInfo('AI生成処理開始...')
     const result = await generate(payload)
 
-    logInfo('結果をJSON形式で出力中...')
-    console.log(JSON.stringify(result, null, 0))
-    logInfo('処理完了')
+    // 常にJSONを返す（失敗時も）
+    console.log(JSON.stringify(result))
   } catch (e) {
-    if (e instanceof SyntaxError) {
-      logError(`標準入力のJSON解析エラー: ${e}`)
-    } else {
-      logError(`予期しないエラー: ${e}`)
-      console.error(e)
-    }
+    log.error(`Fatal error: ${e}`)
+    console.log(JSON.stringify({ description: '', tags: [] }))
     process.exit(1)
   }
 }

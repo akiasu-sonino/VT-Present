@@ -105,6 +105,15 @@ export async function getStreamers(): Promise<Streamer[]> {
   return result.rows
 }
 
+/**
+ * 配信者の総数を取得
+ */
+export async function getStreamerCount(): Promise<number> {
+  console.log('[DB] Fetching streamer count')
+  const result = await sql<{ count: string }>`SELECT COUNT(*) as count FROM streamers`
+  return parseInt(result.rows[0]?.count ?? '0', 10)
+}
+
 // ========================================
 // 配信者関連
 // ========================================

@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { setCookie } from 'hono/cookie'
-import { getRandomStreamer, getRandomStreamers, getStreamerById, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, saveQuizResultsForUser, saveTagSelectionForUser, completeOnboardingForUser, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId, upsertLiveStreams, getLiveStreams, getLiveChannelIds, updateLiveStreamsIfNeeded, createComment, createContactMessage, getRecentLikeCounts, triggerStreamerStatsUpdateIfNeeded, type LiveStream } from './lib/db.js'
+import { getRandomStreamer, getRandomStreamers, getStreamerById, getStreamerCount, recordPreference, deletePreference, PreferenceAction, getActionedStreamerIds, getStreamersByAction, getAllTags, getTagCategories, getUserByGoogleId, createUser, updateUserLastLogin, getUserById, linkAnonymousUserToUser, getCommentsByStreamerId, addTagToStreamer, removeTagFromStreamer, getOnboardingProgress, getOnboardingProgressByUserId, saveQuizResults, saveTagSelection, completeOnboarding, saveQuizResultsForUser, saveTagSelectionForUser, completeOnboardingForUser, markAnonymousModalShown, markAnonymousModalSkipped, addCommentReaction, removeCommentReaction, getUserReactionForComment, getRecommendationRanking, createShareLog, getShareCountByStreamerId, upsertLiveStreams, getLiveStreams, getLiveChannelIds, updateLiveStreamsIfNeeded, createComment, createContactMessage, getRecentLikeCounts, triggerStreamerStatsUpdateIfNeeded, type LiveStream } from './lib/db.js'
 import { getOrCreateCurrentUser, getOrCreateAnonymousId } from './lib/auth.js'
 import { createGoogleAuthorizationURL, validateGoogleAuthorizationCode, setSessionCookie, getSessionUserId, clearSession, isDevelopment, createMockUser } from './lib/oauth.js'
 import { getLiveStreamStatus, type LiveStreamInfo } from './lib/youtube.js'
@@ -655,6 +655,19 @@ app.get('/streamers/live-status', async (c) => {
     return c.json({ liveStatus })
   } catch (error) {
     console.error('Error fetching live status:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// 配信者の総数を取得
+app.get('/streamers/count', async (c) => {
+  try {
+    const count = await getStreamerCount()
+    // 配信者数は比較的安定しているので長めにキャッシュ
+    c.header('Cache-Control', 'public, max-age=3600')
+    return c.json({ count })
+  } catch (error) {
+    console.error('Error fetching streamer count:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })
