@@ -1,4 +1,6 @@
 import { MouseEvent, useState, useRef, useEffect, useCallback } from 'react'
+import Tag from './Tag'
+import { sortTags } from '../utils/tagUtils'
 import '../styles/StreamerCard.css'
 
 interface Streamer {
@@ -36,6 +38,7 @@ interface StreamerCardProps {
   onClick?: () => void
   onAction?: (streamerId: number, action: 'LIKE' | 'SOSO' | 'DISLIKE') => void
   onRemove?: (streamerId: number) => void
+  onTagClick?: (tag: string) => void
   showRemoveButton?: boolean
 }
 
@@ -75,7 +78,7 @@ function getGradientFromName(name: string): string {
   return gradients[Math.abs(hash) % gradients.length]
 }
 
-function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, showRemoveButton = false }: StreamerCardProps) {
+function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, onTagClick, showRemoveButton = false }: StreamerCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [isInView, setIsInView] = useState(false)
@@ -237,11 +240,16 @@ function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, showRem
           </div>
         )}
 
-        <div className="tags">
-          {(streamer.tags || []).map((tag, index) => (
-            <span key={index} className="tag">
-              #{tag}
-            </span>
+        <div className="tags-enhanced">
+          {sortTags(streamer.tags || []).map((tag, index) => (
+            <Tag
+              key={index}
+              tag={tag}
+              onClick={onTagClick}
+              showTooltip={true}
+              size="small"
+              interactive={!!onTagClick}
+            />
           ))}
         </div>
 

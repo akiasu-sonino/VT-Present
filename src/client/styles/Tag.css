@@ -1,0 +1,209 @@
+/* 改善されたタグスタイル */
+
+.tag-enhanced {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+/* サイズバリエーション */
+.tag-small {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+}
+
+.tag-medium {
+  font-size: 0.85rem;
+  padding: 6px 14px;
+}
+
+/* アイコン */
+.tag-icon {
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+/* テキスト */
+.tag-text {
+  line-height: 1;
+}
+
+/* クリック可能なタグ */
+.tag-clickable {
+  cursor: pointer;
+}
+
+.tag-clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  filter: brightness(1.05);
+}
+
+.tag-clickable:active {
+  transform: translateY(0);
+}
+
+.tag-clickable:focus {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* ツールチップ */
+.tag-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a202c;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  animation: tooltipFadeIn 0.2s ease;
+}
+
+.tag-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1a202c;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.tooltip-category {
+  color: #e2e8f0;
+}
+
+.tooltip-action {
+  color: #90cdf4;
+  font-size: 0.75rem;
+}
+
+/* カテゴリ別の追加スタイル */
+
+/* ゲーム配信: 青系 */
+.tag-gaming {
+  box-shadow: 0 2px 4px rgba(79, 172, 254, 0.2);
+}
+
+.tag-gaming.tag-clickable:hover {
+  box-shadow: 0 4px 12px rgba(79, 172, 254, 0.35);
+}
+
+/* ASMR: 紫系 */
+.tag-asmr {
+  box-shadow: 0 2px 4px rgba(167, 139, 250, 0.2);
+}
+
+.tag-asmr.tag-clickable:hover {
+  box-shadow: 0 4px 12px rgba(167, 139, 250, 0.35);
+}
+
+/* 雑談: オレンジ系 */
+.tag-chat {
+  box-shadow: 0 2px 4px rgba(251, 146, 60, 0.2);
+}
+
+.tag-chat.tag-clickable:hover {
+  box-shadow: 0 4px 12px rgba(251, 146, 60, 0.35);
+}
+
+/* エンタメ: ピンク系 */
+.tag-entertainment {
+  box-shadow: 0 2px 4px rgba(244, 114, 182, 0.2);
+}
+
+.tag-entertainment.tag-clickable:hover {
+  box-shadow: 0 4px 12px rgba(244, 114, 182, 0.35);
+}
+
+/* 音楽: 緑系 */
+.tag-music {
+  box-shadow: 0 2px 4px rgba(52, 211, 153, 0.2);
+}
+
+.tag-music.tag-clickable:hover {
+  box-shadow: 0 4px 12px rgba(52, 211, 153, 0.35);
+}
+
+/* 創作: 黄系 */
+.tag-creative {
+  box-shadow: 0 2px 4px rgba(251, 191, 36, 0.2);
+}
+
+.tag-creative.tag-clickable:hover {
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.35);
+}
+
+/* その他: グレー系 */
+.tag-other {
+  box-shadow: 0 2px 4px rgba(148, 163, 184, 0.2);
+}
+
+.tag-other.tag-clickable:hover {
+  box-shadow: 0 4px 12px rgba(148, 163, 184, 0.35);
+}
+
+/* タグコンテナ（ソート済みタグ表示用） */
+.tags-enhanced {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+/* アニメーション軽減モード */
+@media (prefers-reduced-motion: reduce) {
+  .tag-enhanced,
+  .tag-clickable:hover {
+    transition: none;
+    transform: none;
+  }
+
+  .tag-tooltip {
+    animation: none;
+  }
+}
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+  .tag-tooltip {
+    display: none;
+  }
+
+  .tag-small {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+  }
+
+  .tag-icon {
+    font-size: 0.8em;
+  }
+}

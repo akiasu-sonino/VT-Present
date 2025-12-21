@@ -599,6 +599,14 @@ function App() {
     }
   }
 
+  // タグクリックでフィルター適用
+  const handleTagClick = useCallback((tag: string) => {
+    // タグがすでに選択されていない場合のみ追加
+    if (!selectedTags.includes(tag)) {
+      setSelectedTags(prev => [...prev, tag])
+    }
+  }, [selectedTags])
+
   // グローバルローディング状態（メインフェッチ、コメント送信など）
   const isGlobalLoading = loading || submittingComment || addingTag
 
@@ -785,6 +793,7 @@ function App() {
                         liveInfo={liveInfo}
                         onClick={() => setSelectedStreamer(streamer)}
                         onAction={handleAction}
+                        onTagClick={handleTagClick}
                       />
                     )
                   })}
