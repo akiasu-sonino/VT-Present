@@ -14,6 +14,7 @@ import { AdMaxBannerMobile } from './components/AdMaxBannerMobile'
 import OnboardingWizard from './components/onboarding/OnboardingWizard'
 import LoginPromptModal from './components/onboarding/LoginPromptModal'
 import StreamerRequestForm from './components/StreamerRequestForm'
+import ProgressBar from './components/ProgressBar'
 import './styles/App.css'
 
 interface Streamer {
@@ -586,8 +587,14 @@ function App() {
     }
   }
 
+  // グローバルローディング状態（メインフェッチ、コメント送信など）
+  const isGlobalLoading = loading || submittingComment || addingTag
+
   return (
     <div className="app">
+      {/* トップバープログレスバー */}
+      <ProgressBar isLoading={isGlobalLoading} />
+
       {/* スマホ用最上部固定広告 */}
       {isMobile && (
         <AdMaxBannerMobile
@@ -831,8 +838,14 @@ function App() {
                     <button
                       onClick={handleAddTag}
                       disabled={!newTag.trim() || addingTag}
+                      className={addingTag ? 'btn-loading' : ''}
                     >
-                      {addingTag ? '追加中...' : '追加'}
+                      {addingTag ? (
+                        <span className="submit-btn-loading">
+                          <span className="btn-spinner" />
+                          追加中...
+                        </span>
+                      ) : '追加'}
                     </button>
                   </div>
                 )}
@@ -878,8 +891,14 @@ function App() {
                     <button
                       onClick={handleSubmitComment}
                       disabled={!commentText.trim() || submittingComment}
+                      className={submittingComment ? 'btn-loading' : ''}
                     >
-                      {submittingComment ? '送信中...' : '投稿'}
+                      {submittingComment ? (
+                        <span className="submit-btn-loading">
+                          <span className="btn-spinner" />
+                          送信中...
+                        </span>
+                      ) : '投稿'}
                     </button>
                   </div>
                 ) : (

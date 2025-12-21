@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import StreamerCard from './StreamerCard'
 import StreamerCardSkeleton from './StreamerCardSkeleton'
+import ProgressBar from './ProgressBar'
 import '../styles/PreferencesList.css'
 
 interface Streamer {
@@ -110,6 +111,7 @@ function PreferencesList() {
 
   return (
     <div className="preferences-list">
+      <ProgressBar isLoading={loading} />
       <div className="filter-tabs">
         <button
           className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
