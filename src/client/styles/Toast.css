@@ -1,0 +1,265 @@
+/* トースト通知コンテナ */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+  pointer-events: none;
+}
+
+/* 個別トースト */
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15),
+              0 2px 8px rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+  animation: toastSlideIn 0.3s ease-out;
+  min-width: 300px;
+}
+
+.toast.exiting {
+  animation: toastSlideOut 0.2s ease-in forwards;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toastSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* トーストアイコン */
+.toast-icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* トーストコンテンツ */
+.toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+  color: #1a202c;
+}
+
+.toast-message {
+  font-size: 0.9rem;
+  color: #4a5568;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* 閉じるボタン */
+.toast-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #a0aec0;
+  transition: color 0.2s;
+  border-radius: 4px;
+}
+
+.toast-close:hover {
+  color: #4a5568;
+  background: #f7fafc;
+}
+
+/* プログレスバー */
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: currentColor;
+  opacity: 0.3;
+  border-radius: 0 0 12px 12px;
+  animation: toastProgress 3s linear forwards;
+}
+
+@keyframes toastProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+/* 成功トースト */
+.toast-success {
+  border-left: 4px solid #48bb78;
+}
+
+.toast-success .toast-icon {
+  color: #48bb78;
+}
+
+.toast-success .toast-progress {
+  background: #48bb78;
+}
+
+/* エラートースト */
+.toast-error {
+  border-left: 4px solid #f56565;
+}
+
+.toast-error .toast-icon {
+  color: #f56565;
+}
+
+.toast-error .toast-progress {
+  background: #f56565;
+}
+
+/* 警告トースト */
+.toast-warning {
+  border-left: 4px solid #ed8936;
+}
+
+.toast-warning .toast-icon {
+  color: #ed8936;
+}
+
+.toast-warning .toast-progress {
+  background: #ed8936;
+}
+
+/* 情報トースト */
+.toast-info {
+  border-left: 4px solid #4299e1;
+}
+
+.toast-info .toast-icon {
+  color: #4299e1;
+}
+
+.toast-info .toast-progress {
+  background: #4299e1;
+}
+
+/* エラー詳細（開発者向け） */
+.toast-details {
+  margin-top: 8px;
+}
+
+.toast-details-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #667eea;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.toast-details-toggle:hover {
+  color: #5a67d8;
+}
+
+.toast-details-content {
+  margin-top: 8px;
+  padding: 8px;
+  background: #f7fafc;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #718096;
+  max-height: 100px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+  .toast-container {
+    top: auto;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    max-width: none;
+  }
+
+  .toast {
+    min-width: auto;
+  }
+
+  @keyframes toastSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes toastSlideOut {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+  }
+}
+
+/* アニメーション軽減モード */
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+
+  .toast.exiting {
+    animation: none;
+    opacity: 0;
+  }
+
+  .toast-progress {
+    animation: none;
+    width: 0;
+  }
+}

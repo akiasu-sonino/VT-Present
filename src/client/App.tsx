@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import StreamerCard from './components/StreamerCard'
 import StreamerCardSkeleton from './components/StreamerCardSkeleton'
 import { CommentSkeleton } from './components/ModalSkeleton'
+import ErrorMessage, { parseError, type ErrorInfo } from './components/ErrorMessage'
+import { useToast } from './components/Toast'
 import PreferencesList from './components/PreferencesList'
 import TagFilter from './components/TagFilter'
 import SearchBox from './components/SearchBox'
@@ -65,7 +67,8 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabType>('discover')
   const [streamers, setStreamers] = useState<Streamer[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<ErrorInfo | null>(null)
+  const toast = useToast()
   const [selectedStreamer, setSelectedStreamer] = useState<Streamer | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [tagOperator, setTagOperator] = useState<'OR' | 'AND'>('OR')
@@ -122,10 +125,13 @@ function App() {
         }
         setError(null)
       } else {
-        setError('配信者の取得に失敗しました')
+        const errorInfo = parseError(response)
+        errorInfo.message = data.error || '配信者の取得に失敗しました'
+        setError(errorInfo)
       }
     } catch (err) {
-      setError('配信者の取得に失敗しました')
+      const errorInfo = parseError(err)
+      setError(errorInfo)
       console.error(err)
     } finally {
       setLoading(false)
@@ -392,7 +398,7 @@ function App() {
         // エラーの場合は追加したコメントを削除
         setComments(prev => prev.filter(c => c.id !== tempId))
         const data = await response.json()
-        alert(data.error || 'コメント投稿に失敗しました')
+        toast.showError('コメント投稿に失敗しました', data.error)
         setCommentText(newComment.content) // テキストを戻す
       } else {
         // 成功時: サーバーから返ってきた正しいコメントデータで更新
@@ -403,7 +409,8 @@ function App() {
       console.error('Error submitting comment:', err)
       // エラーの場合は追加したコメントを削除
       setComments(prev => prev.filter(c => c.id !== tempId))
-      alert('コメント投稿に失敗しました')
+      const errorInfo = parseError(err)
+      toast.showError('コメント投稿に失敗しました', errorInfo.message, errorInfo.details)
       setCommentText(newComment.content) // テキストを戻す
     } finally {
       setSubmittingComment(false)
@@ -429,13 +436,15 @@ function App() {
         // streamersリストも更新
         setStreamers(prev => prev.map(s => s.id === selectedStreamer.id ? { ...s, tags: data.streamer.tags } : s))
         setNewTag('')
+        toast.showSuccess('タグを追加しました')
       } else {
         const data = await response.json()
-        alert(data.error || 'タグの追加に失敗しました')
+        toast.showError('タグの追加に失敗しました', data.error)
       }
     } catch (err) {
       console.error('Error adding tag:', err)
-      alert('タグの追加に失敗しました')
+      const errorInfo = parseError(err)
+      toast.showError('タグの追加に失敗しました', errorInfo.message, errorInfo.details)
     } finally {
       setAddingTag(false)
     }
@@ -518,7 +527,7 @@ function App() {
         return c
       }))
 
-      alert('リアクションの更新に失敗しました。もう一度お試しください。')
+      toast.showError('リアクションの更新に失敗しました', 'もう一度お試しください')
     }
   }
 
@@ -538,13 +547,15 @@ function App() {
         setSelectedStreamer(prev => prev ? { ...prev, tags: data.streamer.tags } : null)
         // streamersリストも更新
         setStreamers(prev => prev.map(s => s.id === selectedStreamer.id ? { ...s, tags: data.streamer.tags } : s))
+        toast.showSuccess('タグを削除しました')
       } else {
         const data = await response.json()
-        alert(data.error || 'タグの削除に失敗しました')
+        toast.showError('タグの削除に失敗しました', data.error)
       }
     } catch (err) {
       console.error('Error removing tag:', err)
-      alert('タグの削除に失敗しました')
+      const errorInfo = parseError(err)
+      toast.showError('タグの削除に失敗しました', errorInfo.message, errorInfo.details)
     }
   }
 
@@ -583,7 +594,8 @@ function App() {
       })
     } catch (err) {
       console.error('Error recording action:', err)
-      setError('アクションの記録に失敗しました')
+      const errorInfo = parseError(err)
+      toast.showError('アクションの記録に失敗しました', errorInfo.message, errorInfo.details)
     }
   }
 
@@ -738,10 +750,10 @@ function App() {
               )}
 
               {error && (
-                <div className="error">
-                  <p>{error}</p>
-                  <button onClick={fetchStreamers}>再読み込み</button>
-                </div>
+                <ErrorMessage
+                  error={error}
+                  onRetry={fetchStreamers}
+                />
               )}
 
               {!loading && !error && streamers.length === 0 && (

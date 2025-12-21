@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import StreamerCard from './StreamerCard'
 import StreamerCardSkeleton from './StreamerCardSkeleton'
 import ProgressBar from './ProgressBar'
+import ErrorMessage, { parseError, type ErrorInfo } from './ErrorMessage'
+import { useToast } from './Toast'
 import '../styles/PreferencesList.css'
 
 interface Streamer {
@@ -30,7 +32,8 @@ type FilterType = 'all' | 'LIKE' | 'SOSO'
 function PreferencesList() {
   const [streamers, setStreamers] = useState<Streamer[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<ErrorInfo | null>(null)
+  const toast = useToast()
   const [filter, setFilter] = useState<FilterType>('all')
   const [selectedStreamer, setSelectedStreamer] = useState<Streamer | null>(null)
   const [liveStatus, setLiveStatus] = useState<Record<string, LiveInfo>>({})
@@ -49,10 +52,13 @@ function PreferencesList() {
         setStreamers(data.streamers)
         setError(null)
       } else {
-        setError('配信者の取得に失敗しました')
+        const errorInfo = parseError(response)
+        errorInfo.message = data.error || '配信者の取得に失敗しました'
+        setError(errorInfo)
       }
     } catch (err) {
-      setError('配信者の取得に失敗しました')
+      const errorInfo = parseError(err)
+      setError(errorInfo)
       console.error(err)
     } finally {
       setLoading(false)
@@ -92,11 +98,13 @@ function PreferencesList() {
       if (response.ok) {
         // リストから削除
         setStreamers(prevStreamers => prevStreamers.filter(s => s.id !== streamerId))
+        toast.showSuccess('選択を解除しました')
       } else {
-        setError('選択の解除に失敗しました')
+        toast.showError('選択の解除に失敗しました')
       }
     } catch (err) {
-      setError('選択の解除に失敗しました')
+      const errorInfo = parseError(err)
+      toast.showError('選択の解除に失敗しました', errorInfo.message, errorInfo.details)
       console.error(err)
     }
   }
@@ -141,10 +149,10 @@ function PreferencesList() {
         )}
 
         {error && (
-          <div className="error">
-            <p>{error}</p>
-            <button onClick={fetchPreferences}>再読み込み</button>
-          </div>
+          <ErrorMessage
+            error={error}
+            onRetry={fetchPreferences}
+          />
         )}
 
         {!loading && !error && streamers.length === 0 && (
