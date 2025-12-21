@@ -1,0 +1,213 @@
+/* Skeleton Loading Styles */
+
+/* シマーアニメーション */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/* スケルトン基本スタイル */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #e8e8e8 25%,
+    #f5f5f5 50%,
+    #e8e8e8 75%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+  border-radius: 4px;
+}
+
+/* スケルトンカードコンテナ */
+.skeleton-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* 画像エリアのスケルトン */
+.skeleton-image {
+  width: 100%;
+  height: 200px;
+  background: linear-gradient(
+    90deg,
+    #d0d0d0 25%,
+    #e0e0e0 50%,
+    #d0d0d0 75%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* コンテンツエリア */
+.skeleton-content {
+  padding: 20px;
+}
+
+/* タイトルのスケルトン */
+.skeleton-title {
+  height: 24px;
+  width: 70%;
+  margin-bottom: 12px;
+}
+
+/* 説明文のスケルトン */
+.skeleton-description {
+  height: 16px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.skeleton-description:last-of-type {
+  width: 80%;
+}
+
+/* バッジエリアのスケルトン */
+.skeleton-badges {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.skeleton-badge {
+  height: 24px;
+  width: 60px;
+  border-radius: 12px;
+}
+
+/* タグエリアのスケルトン */
+.skeleton-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.skeleton-tag {
+  height: 26px;
+  width: 70px;
+  border-radius: 16px;
+}
+
+/* フォロワーカウントのスケルトン */
+.skeleton-followers {
+  height: 20px;
+  width: 120px;
+}
+
+/* アクションボタンエリア */
+.skeleton-actions {
+  display: flex;
+  justify-content: space-around;
+  padding: 12px 16px;
+  border-top: 1px solid #e2e8f0;
+  background: #f7fafc;
+  gap: 8px;
+}
+
+.skeleton-button {
+  flex: 1;
+  height: 42px;
+  border-radius: 12px;
+}
+
+/* モーダル用スケルトン */
+.skeleton-video {
+  width: 100%;
+  height: 400px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.skeleton-comment {
+  padding: 1rem;
+  background-color: #f7fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.skeleton-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.skeleton-author {
+  height: 16px;
+  width: 100px;
+}
+
+.skeleton-date {
+  height: 14px;
+  width: 80px;
+  margin-left: auto;
+}
+
+.skeleton-comment-body {
+  height: 16px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.skeleton-comment-body:last-child {
+  width: 60%;
+}
+
+/* グリッド表示用 */
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  padding: 20px;
+}
+
+/* アニメーション軽減モード対応 */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .skeleton-image {
+    animation: none;
+    background: #e8e8e8;
+  }
+}
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+  .skeleton-image {
+    height: 160px;
+  }
+
+  .skeleton-content {
+    padding: 16px;
+  }
+
+  .skeleton-title {
+    height: 20px;
+  }
+
+  .skeleton-description {
+    height: 14px;
+  }
+
+  .skeleton-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+    padding: 10px;
+  }
+
+  .skeleton-video {
+    height: 250px;
+  }
+}

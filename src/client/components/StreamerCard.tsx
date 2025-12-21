@@ -1,4 +1,4 @@
-import { MouseEvent } from 'react'
+import { MouseEvent, useState, useRef, useEffect, useCallback } from 'react'
 import '../styles/StreamerCard.css'
 
 interface Streamer {
@@ -25,6 +25,9 @@ interface LiveInfo {
   viewerCount?: number
   videoId?: string
   title?: string
+  platform?: string
+  gameName?: string
+  thumbnailUrl?: string
 }
 
 interface StreamerCardProps {
@@ -36,7 +39,85 @@ interface StreamerCardProps {
   showRemoveButton?: boolean
 }
 
+// イニシャルを取得（日本語/英語対応）
+function getInitials(name: string): string {
+  if (!name) return '?'
+  // 日本語の場合は最初の1-2文字
+  const firstChar = name.charAt(0)
+  if (/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(firstChar)) {
+    return name.slice(0, 2)
+  }
+  // 英語の場合は最初の2文字（大文字）
+  const words = name.split(/\s+/)
+  if (words.length >= 2) {
+    return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase()
+  }
+  return name.slice(0, 2).toUpperCase()
+}
+
+// 名前からグラデーションカラーを生成
+function getGradientFromName(name: string): string {
+  const gradients = [
+    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+    'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+    'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+  ]
+  // 名前のハッシュ値からグラデーションを選択
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return gradients[Math.abs(hash) % gradients.length]
+}
+
 function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, showRemoveButton = false }: StreamerCardProps) {
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
+  const [isInView, setIsInView] = useState(false)
+  const imageRef = useRef<HTMLDivElement>(null)
+
+  // Intersection Observer for lazy loading
+  useEffect(() => {
+    const element = imageRef.current
+    if (!element) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsInView(true)
+            observer.unobserve(element)
+          }
+        })
+      },
+      {
+        rootMargin: '100px', // 100px before entering viewport
+        threshold: 0.01,
+      }
+    )
+
+    observer.observe(element)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
+  const handleImageLoad = useCallback(() => {
+    setImageLoaded(true)
+    setImageError(false)
+  }, [])
+
+  const handleImageError = useCallback(() => {
+    setImageError(true)
+    setImageLoaded(true) // Hide loading state
+  }, [])
+
   const handleAction = (e: MouseEvent, action: 'LIKE' | 'SOSO' | 'DISLIKE') => {
     e.stopPropagation()
     onAction?.(streamer.id, action)
@@ -96,11 +177,38 @@ function StreamerCard({ streamer, liveInfo, onClick, onAction, onRemove, showRem
   }
 
   const badges = getBadges()
+  const initials = getInitials(streamer.name)
+  const fallbackGradient = getGradientFromName(streamer.name)
 
   return (
     <div className={`streamer-card ${liveInfo?.isLive ? 'is-live' : ''}`}>
-      <div className="card-image" onClick={onClick}>
-        <img src={streamer.avatar_url} alt={streamer.name} loading="lazy" />
+      <div className="card-image" onClick={onClick} ref={imageRef}>
+        {/* プレースホルダー / フォールバック */}
+        <div
+          className={`image-placeholder ${imageLoaded && !imageError ? 'loaded' : ''}`}
+          style={{ background: fallbackGradient }}
+        >
+          {/* ローディングスピナー（画像読み込み中のみ表示） */}
+          {isInView && !imageLoaded && (
+            <div className="image-loading-spinner" />
+          )}
+          {/* フォールバック時のイニシャル表示 */}
+          {imageError && (
+            <span className="image-initials">{initials}</span>
+          )}
+        </div>
+
+        {/* 実際の画像（Intersection Observerでビューポート内に入ったら読み込み） */}
+        {isInView && !imageError && (
+          <img
+            src={streamer.avatar_url}
+            alt={streamer.name}
+            className={`streamer-avatar ${imageLoaded ? 'loaded' : ''}`}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+          />
+        )}
+
         <span className="platform-badge">{streamer.platform}</span>
         {liveInfo?.isLive && (
           <div className="live-badge">

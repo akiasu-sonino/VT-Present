@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import StreamerCard from './StreamerCard'
+import StreamerCardSkeleton from './StreamerCardSkeleton'
 import '../styles/PreferencesList.css'
 
 interface Streamer {
@@ -132,8 +133,8 @@ function PreferencesList() {
 
       <div className="preferences-content">
         {loading && (
-          <div className="loading">
-            <p>読み込み中...</p>
+          <div className="streamers-grid">
+            <StreamerCardSkeleton count={6} />
           </div>
         )}
 
@@ -153,9 +154,12 @@ function PreferencesList() {
         {!loading && !error && streamers.length > 0 && (
           <div className="streamers-grid">
             {streamers.map((streamer) => {
+              // YouTube/Twitch両方のライブ状態を確認
               const liveInfo = streamer.youtube_channel_id
                 ? liveStatus[streamer.youtube_channel_id]
-                : undefined
+                : streamer.twitch_user_id
+                  ? liveStatus[streamer.twitch_user_id]
+                  : undefined
               return (
                 <StreamerCard
                   key={streamer.id}

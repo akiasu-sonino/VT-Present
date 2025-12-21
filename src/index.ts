@@ -639,14 +639,25 @@ app.get('/streamers/live-status', async (c) => {
     // DBからライブ状態を取得
     const liveStreamsMap = await getLiveStreams()
 
-    // オブジェクト形式に変換してレスポンス
-    const liveStatus: Record<string, { isLive: boolean; viewerCount?: number; videoId?: string; title?: string }> = {}
+    // オブジェクト形式に変換してレスポンス（YouTube/Twitch両対応）
+    const liveStatus: Record<string, {
+      isLive: boolean
+      viewerCount?: number
+      videoId?: string
+      title?: string
+      platform?: string
+      gameName?: string
+      thumbnailUrl?: string
+    }> = {}
     liveStreamsMap.forEach((stream, channelId) => {
       liveStatus[channelId] = {
         isLive: stream.is_live,
         viewerCount: stream.viewer_count ?? undefined,
         videoId: stream.video_id ?? undefined,
-        title: stream.title ?? undefined
+        title: stream.title ?? undefined,
+        platform: stream.platform,
+        gameName: stream.game_name ?? undefined,
+        thumbnailUrl: stream.thumbnail_url ?? undefined
       }
     })
 

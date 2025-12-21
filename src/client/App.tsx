@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import StreamerCard from './components/StreamerCard'
+import StreamerCardSkeleton from './components/StreamerCardSkeleton'
+import { CommentSkeleton } from './components/ModalSkeleton'
 import PreferencesList from './components/PreferencesList'
 import TagFilter from './components/TagFilter'
 import SearchBox from './components/SearchBox'
@@ -71,6 +73,7 @@ function App() {
   const [maxFollowers, setMaxFollowers] = useState(Number.MAX_SAFE_INTEGER)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
   const [liveStatus, setLiveStatus] = useState<Record<string, LiveInfo>>({})
@@ -340,6 +343,7 @@ function App() {
 
   const fetchComments = async (streamerId: number) => {
     try {
+      setCommentsLoading(true)
       const response = await fetch(`/api/comments/${streamerId}`)
       const data = await response.json()
       if (response.ok && data.comments) {
@@ -347,6 +351,8 @@ function App() {
       }
     } catch (err) {
       console.error('Error fetching comments:', err)
+    } finally {
+      setCommentsLoading(false)
     }
   }
 
@@ -719,8 +725,8 @@ function App() {
               </div>
 
               {loading && (
-                <div className="loading">
-                  <p>配信者を読み込み中...</p>
+                <div className="streamers-grid">
+                  <StreamerCardSkeleton count={12} />
                 </div>
               )}
 
@@ -747,9 +753,12 @@ function App() {
               {!loading && !error && streamers.length > 0 && (
                 <div className="streamers-grid">
                   {streamers.map((streamer, index) => {
+                    // YouTube/Twitch両方のライブ状態を確認
                     const liveInfo = streamer.youtube_channel_id
                       ? liveStatus[streamer.youtube_channel_id]
-                      : undefined
+                      : streamer.twitch_user_id
+                        ? liveStatus[streamer.twitch_user_id]
+                        : undefined
                     return (
                       <StreamerCard
                         key={`${streamer.id}-${index}`}
@@ -878,7 +887,9 @@ function App() {
                 )}
 
                 <div className="comments-list">
-                  {comments.length === 0 ? (
+                  {commentsLoading ? (
+                    <CommentSkeleton count={3} />
+                  ) : comments.length === 0 ? (
                     <p className="no-comments">まだコメントがありません</p>
                   ) : (
                     comments.map((comment) => (

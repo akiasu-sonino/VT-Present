@@ -149,10 +149,11 @@ export async function getRandomStreamers(
   const streamers = await getStreamers()
   let available = streamers.filter(s => !excludeIds.includes(s.id))
 
-  // ライブ中のみフィルター
+  // ライブ中のみフィルター（YouTube/Twitch両対応）
   if (liveChannelIds !== undefined) {
     available = available.filter(s =>
-      s.youtube_channel_id && liveChannelIds.includes(s.youtube_channel_id)
+      (s.youtube_channel_id && liveChannelIds.includes(s.youtube_channel_id)) ||
+      (s.twitch_user_id && liveChannelIds.includes(s.twitch_user_id))
     )
   }
 
@@ -1165,10 +1166,13 @@ export async function getShareCountByStreamerId(streamerId: number): Promise<num
 
 export interface LiveStream {
   channel_id: string
+  platform: 'youtube' | 'twitch'
   is_live: boolean
   viewer_count: number | null
   video_id: string | null
   title: string | null
+  game_name: string | null       // Twitch only
+  thumbnail_url: string | null   // Twitch only
   updated_at: Date
 }
 
@@ -1184,20 +1188,22 @@ export async function upsertLiveStreams(liveStreams: LiveStream[]): Promise<void
       return
     }
 
-    // トランザクションで一括UPSERT
+    // トランザクションで一括UPSERT（複合主キー対応）
     const values = liveStreams.map(stream =>
-      `('${stream.channel_id}', ${stream.is_live}, ${stream.viewer_count ?? 'NULL'}, ${stream.video_id ? `'${stream.video_id}'` : 'NULL'}, ${stream.title ? `'${stream.title.replace(/'/g, "''")}'` : 'NULL'}, NOW())`
+      `('${stream.channel_id}', '${stream.platform}', ${stream.is_live}, ${stream.viewer_count ?? 'NULL'}, ${stream.video_id ? `'${stream.video_id}'` : 'NULL'}, ${stream.title ? `'${stream.title.replace(/'/g, "''")}'` : 'NULL'}, ${stream.game_name ? `'${stream.game_name.replace(/'/g, "''")}'` : 'NULL'}, ${stream.thumbnail_url ? `'${stream.thumbnail_url.replace(/'/g, "''")}'` : 'NULL'}, NOW())`
     ).join(',')
 
     await sql.query(`
-      INSERT INTO live_streams (channel_id, is_live, viewer_count, video_id, title, updated_at)
+      INSERT INTO live_streams (channel_id, platform, is_live, viewer_count, video_id, title, game_name, thumbnail_url, updated_at)
       VALUES ${values}
-      ON CONFLICT (channel_id)
+      ON CONFLICT (channel_id, platform)
       DO UPDATE SET
         is_live = EXCLUDED.is_live,
         viewer_count = EXCLUDED.viewer_count,
         video_id = EXCLUDED.video_id,
         title = EXCLUDED.title,
+        game_name = EXCLUDED.game_name,
+        thumbnail_url = EXCLUDED.thumbnail_url,
         updated_at = EXCLUDED.updated_at
     `)
 
@@ -1215,13 +1221,14 @@ export async function upsertLiveStreams(liveStreams: LiveStream[]): Promise<void
 export async function getLiveStreams(): Promise<Map<string, LiveStream>> {
   try {
     const result = await sql<LiveStream>`
-      SELECT channel_id, is_live, viewer_count, video_id, title, updated_at
+      SELECT channel_id, platform, is_live, viewer_count, video_id, title, game_name, thumbnail_url, updated_at
       FROM live_streams
       WHERE updated_at > NOW() - INTERVAL '15 minutes'
     `
 
     const liveStreamsMap = new Map<string, LiveStream>()
     result.rows.forEach(stream => {
+      // YouTube/Twitch両方のIDに対応するため、channel_idをそのままキーにする
       liveStreamsMap.set(stream.channel_id, stream)
     })
 
@@ -1258,7 +1265,7 @@ export async function getLiveChannelIds(): Promise<string[]> {
 /**
  * ライブ配信状態が古い場合に更新する（オンデマンド更新）
  * - 最終更新が5分以上前、またはデータが存在しない場合に更新
- * - YouTube APIを呼び出してDBを更新
+ * - YouTube/Twitch両方のAPIを呼び出してDBを更新
  * @returns 更新が実行されたかどうか
  */
 export async function updateLiveStreamsIfNeeded(): Promise<boolean> {
@@ -1283,45 +1290,73 @@ export async function updateLiveStreamsIfNeeded(): Promise<boolean> {
 
     console.log('[DB] Live streams data is stale, updating...')
 
-    // YouTube API Keyを取得
-    const apiKey = process.env.YOUTUBE_API_KEY
-    if (!apiKey) {
-      console.error('[DB] YOUTUBE_API_KEY is not configured')
-      return false
-    }
-
     // 全配信者を取得
     const streamers = await getStreamers()
-    const channelIds = streamers
+
+    // YouTubeとTwitchの配信者を分離
+    const youtubeChannelIds = streamers
       .filter(s => s.youtube_channel_id)
       .map(s => s.youtube_channel_id as string)
 
-    if (channelIds.length === 0) {
+    const twitchUserIds = streamers
+      .filter(s => s.twitch_user_id)
+      .map(s => s.twitch_user_id as string)
+
+    const allLiveStreams: LiveStream[] = []
+
+    // YouTube ライブ状態取得
+    const youtubeApiKey = process.env.YOUTUBE_API_KEY
+    if (youtubeApiKey && youtubeChannelIds.length > 0) {
+      console.log(`[DB] Fetching YouTube live status for ${youtubeChannelIds.length} channels`)
+      const { getLiveStreamStatus } = await import('./youtube.js')
+      const youtubeLiveInfoList = await getLiveStreamStatus(youtubeChannelIds, youtubeApiKey)
+
+      const youtubeLiveStreams: LiveStream[] = youtubeLiveInfoList.map(info => ({
+        channel_id: info.channelId,
+        platform: 'youtube' as const,
+        is_live: info.isLive,
+        viewer_count: info.viewerCount ?? null,
+        video_id: info.videoId ?? null,
+        title: info.title ?? null,
+        game_name: null,
+        thumbnail_url: null,
+        updated_at: new Date()
+      }))
+      allLiveStreams.push(...youtubeLiveStreams)
+    }
+
+    // Twitch ライブ状態取得
+    const twitchClientId = process.env.TWITCH_CLIENT_ID
+    const twitchClientSecret = process.env.TWITCH_CLIENT_SECRET
+    if (twitchClientId && twitchClientSecret && twitchUserIds.length > 0) {
+      console.log(`[DB] Fetching Twitch live status for ${twitchUserIds.length} users`)
+      const { getTwitchLiveStreamStatus } = await import('./twitch.js')
+      const twitchLiveInfoList = await getTwitchLiveStreamStatus(twitchUserIds, twitchClientId, twitchClientSecret)
+
+      const twitchLiveStreams: LiveStream[] = twitchLiveInfoList.map(info => ({
+        channel_id: info.twitchUserId,
+        platform: 'twitch' as const,
+        is_live: info.isLive,
+        viewer_count: info.viewerCount ?? null,
+        video_id: info.streamId ?? null,
+        title: info.title ?? null,
+        game_name: info.gameName ?? null,
+        thumbnail_url: info.thumbnailUrl ?? null,
+        updated_at: new Date()
+      }))
+      allLiveStreams.push(...twitchLiveStreams)
+    }
+
+    if (allLiveStreams.length === 0) {
       console.log('[DB] No channels to check')
       return false
     }
 
-    console.log(`[DB] Fetching live status for ${channelIds.length} channels`)
-
-    // YouTube APIからライブ状態を取得（動的importが必要）
-    const { getLiveStreamStatus } = await import('./youtube.js')
-    const liveStreamInfoList = await getLiveStreamStatus(channelIds, apiKey)
-
-    // LiveStreamInfo[] を LiveStream[] に変換
-    const liveStreams: LiveStream[] = liveStreamInfoList.map(info => ({
-      channel_id: info.channelId,
-      is_live: info.isLive,
-      viewer_count: info.viewerCount ?? null,
-      video_id: info.videoId ?? null,
-      title: info.title ?? null,
-      updated_at: new Date()
-    }))
-
     // DBに保存
-    await upsertLiveStreams(liveStreams)
+    await upsertLiveStreams(allLiveStreams)
 
-    const liveCount = liveStreams.filter(s => s.is_live).length
-    console.log(`[DB] Updated ${liveStreams.length} live stream statuses (${liveCount} live)`)
+    const liveCount = allLiveStreams.filter(s => s.is_live).length
+    console.log(`[DB] Updated ${allLiveStreams.length} live stream statuses (${liveCount} live)`)
 
     return true
   } catch (error) {
